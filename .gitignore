@@ -15,3 +15,6 @@ scraped/
 .DS_Store
 Thumbs.db
 *.log
+
+# Built desktop app
+dist/

@@ -45,13 +45,29 @@ and privacy law (POPIA in South Africa, GDPR in Europe) still apply to what you 
 
 ## Start
 
-**Windows:** double-click `Start DeepScrape.bat`. The first run installs what it
-needs; after that the dashboard opens at <http://localhost:4780>.
+**Windows app:** run `DeepScrape-Setup-<version>.exe`. It installs for your
+Windows account only (no administrator rights), adds DeepScrape to the Start menu
+and the desktop, and opens the dashboard in its own window. Node.js is not needed.
+Scrapes are saved in `Documents\DeepScrape\data`. The installer is not code-signed,
+so Windows may show a "Windows protected your PC" notice the first time: choose
+**More info**, then **Run anyway**.
 
-**Any system:** `npm install` once, then `npm start`.
+**From source on Windows:** double-click `Start DeepScrape.bat`. The first run
+installs what it needs; after that the dashboard opens at <http://localhost:4780>.
 
-Needs [Node.js 18+](https://nodejs.org). It uses Google Chrome or Microsoft Edge
-if one is installed; otherwise run `npx playwright install chromium` once.
+**From source on any system:** `npm install` once, then `npm start` (dashboard in
+your browser) or `npm run app` (dashboard in its own window).
+
+Running from source needs [Node.js 18+](https://nodejs.org). Either way, DeepScrape
+drives Google Chrome or Microsoft Edge if one is installed; otherwise run
+`npx playwright install chromium` once.
+
+### Building the Windows app
+
+`npm run dist:win` builds `dist/DeepScrape-win32-x64` (the app folder) and
+`dist/DeepScrape-Setup-<version>.exe` (the installer). It works from Windows, macOS
+or Linux and needs [NSIS 3](https://nsis.sourceforge.io) (`makensis`) on the PATH for
+the installer step. `npm run icon` redraws the app icon.
 
 ## Using the dashboard
 
@@ -326,7 +342,7 @@ node scrape.js --help
 
 `npm test` runs four end-to-end tests against a built-in local test site: the
 crawler (108 checks), the sign-in flow, the dashboard, and several websites at once. On Linux without a
-screen, run it under `xvfb-run`.
+screen, run it under `xvfb-run`. `npm run test:desktop` checks the desktop app window.
 
 ## Licence
 

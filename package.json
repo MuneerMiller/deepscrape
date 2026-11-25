@@ -9,7 +9,13 @@
   "scripts": {
     "start": "node server.js",
     "scrape": "node scrape.js",
-    "test": "node test/run-test.js && node test/login-test.js && node test/dashboard-test.js && node test/batch-test.js"
+    "test": "node test/run-test.js && node test/login-test.js && node test/dashboard-test.js && node test/batch-test.js",
+    "app": "electron electron/main.js",
+    "icon": "node tools/make-icon.js",
+    "build:win": "node tools/build-win.js",
+    "build:installer": "node tools/build-installer.js",
+    "dist:win": "npm run build:win && npm run build:installer",
+    "test:desktop": "node test/desktop-test.js"
   },
   "engines": {
     "node": ">=18"
@@ -33,5 +39,9 @@
     "type": "git",
     "url": "https://github.com/MuneerMiller/deepscrape.git"
   },
-  "homepage": "https://github.com/MuneerMiller/deepscrape"
+  "homepage": "https://github.com/MuneerMiller/deepscrape",
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^45.5.0"
+  }
 }

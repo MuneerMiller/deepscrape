@@ -152,6 +152,7 @@ dl.kv{display:grid;grid-template-columns:170px 1fr;gap:4px 14px;margin:0 0 16px}
 #dbody h4{font-family:var(--display);font-size:15px;margin:18px 0 8px}
 #scrim{position:fixed;inset:0;background:rgba(10,25,45,.25);opacity:0;pointer-events:none;transition:opacity .18s;z-index:19} #scrim.open{opacity:1;pointer-events:auto}
 @media (max-width:860px){body{grid-template-columns:1fr}#rail{position:static;height:auto;max-height:230px}#main{padding:16px}}
+dialog.ask .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)} dialog.ask{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:18px;min-width:320px;box-shadow:0 18px 50px rgba(0,0,0,.25)} dialog.ask::backdrop{background:rgba(10,20,30,.45)} dialog.ask label{display:grid;gap:8px;font-weight:600} dialog.ask input,dialog.ask select{border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);padding:7px 9px;font:inherit;font-weight:400} .askrow{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 </style>
 </head>
 <body>
@@ -238,6 +239,20 @@ dl.kv{display:grid;grid-template-columns:170px 1fr;gap:4px 14px;margin:0 0 16px}
 'use strict';
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// A small question box. Used instead of the browser's prompt(), which desktop app windows do not provide.
+function ask(question, def = '', choices = null) {
+  return new Promise((resolve) => {
+    const d = document.createElement('dialog'); d.className = 'ask';
+    const field = choices ? `<select>${choices.map((c) => `<option${c === def ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select>` : `<input type="text" value="${esc(def)}">`;
+    d.innerHTML = `<form method="dialog"><label>${esc(question)}${field}</label><div class="askrow"><button class="btn" value="cancel" type="button">Cancel</button><button class="btn primary" value="ok">OK</button></div></form>`;
+    document.body.appendChild(d);
+    const input = d.querySelector('input,select');
+    d.querySelector('[value=cancel]').onclick = () => d.close('cancel');
+    d.addEventListener('close', () => { const v = d.returnValue === 'ok' ? input.value : null; d.remove(); resolve(v); });
+    d.showModal(); input.focus(); if (input.select) input.select();
+  });
+}
 const api = async (p, opt = {}) => { const r = await fetch(p, { ...opt, headers: opt.body ? { 'content-type': 'application/json' } : undefined }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Request failed'); return j; };
 const bytes = (n) => (n == null ? '' : n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : n < 1073741824 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1073741824).toFixed(2) + ' GB');
 const dur = (ms) => { const s = Math.round((ms || 0) / 1000); return s < 60 ? s + 's' : s < 3600 ? Math.floor(s / 60) + 'm ' + (s % 60) + 's' : Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm'; };
@@ -477,8 +492,8 @@ async function onAct(e) {
   if (e.target.dataset && e.target.dataset.signin) { try { await api(`/api/jobs/${S.id}/signin?host=${encodeURIComponent(e.target.dataset.signin)}`, { method: 'POST' }); await loadJob(); refreshJobs(); } catch (err) { alert(err.message); } return; }
   if (e.target.dataset && e.target.dataset.showwait) { const box = document.querySelector(`[data-waitlist="${CSS.escape(e.target.dataset.showwait)}"]`); const list = ((S.job.summary && S.job.summary.needSignIn) || []).filter((g) => g.key === e.target.dataset.showwait).map((g) => esc(g.url)); box.hidden = !box.hidden; box.innerHTML = list.length ? list.join('<br>') : 'The list of pages is available once this scrape finishes.'; return; }
   if (e.target.dataset && e.target.dataset.act === 'repeat') {
-    const every = prompt('Repeat how often? Type: day, week or month', 'week'); if (!every) return;
-    const at = prompt('At what time? (24-hour, e.g. 06:00)', '06:00'); if (!at) return;
+    const every = await ask('Repeat how often?', 'week', ['day', 'week', 'month']); if (!every) return;
+    const at = await ask('At what time? (24-hour, e.g. 06:00)', '06:00'); if (!at) return;
     try { await api('/api/schedules', { method: 'POST', body: JSON.stringify({ url: S.job.url, options: S.job.options, every: every.trim().toLowerCase().replace(/ly$/, '').replace('dai', 'day'), at: at.trim(), weekday: new Date().getDay(), day: new Date().getDate() }) }); await refreshJobs(); alert('This scrape will now repeat while DeepScrape is open. Each run is compared with the one before, and the changes show under the site name in the list.'); } catch (err) { alert(err.message); }
     return;
   }
@@ -486,7 +501,7 @@ async function onAct(e) {
   try {
     if (a === 'delete') { if (!confirm('Delete this scrape and all its saved files from this computer?')) return; await api('/api/jobs/' + S.id, { method: 'DELETE' }); S.id = null; S.job = null; $('#jobview').hidden = true; showStart(); return refreshJobs(); }
     if (a === 'rerun') { const j = await api(`/api/jobs/${S.id}/rerun`, { method: 'POST' }); await refreshJobs(); return selectJob(j.id); }
-    if (a === 'resume-crawl') { const body = S.job.status === 'partial' ? { maxPages: Number(prompt('New page limit (0 = no limit)', '0') ?? 0) } : {}; await api(`/api/jobs/${S.id}/resume-crawl`, { method: 'POST', body: JSON.stringify(body) }); await loadJob(); return refreshJobs(); }
+    if (a === 'resume-crawl') { const body = S.job.status === 'partial' ? { maxPages: Number((await ask('New page limit (0 = no limit)', '0')) ?? 0) } : {}; await api(`/api/jobs/${S.id}/resume-crawl`, { method: 'POST', body: JSON.stringify(body) }); await loadJob(); return refreshJobs(); }
     await api(`/api/jobs/${S.id}/${a}`, { method: 'POST' });
     if (a === 'continue' || a === 'skip') { S.job.human = null; renderHead(); }
   } catch (err) { alert(err.message); }

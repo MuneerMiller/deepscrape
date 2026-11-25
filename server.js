@@ -211,6 +211,7 @@ const server = http.createServer(async (req, res) => {
       }
       return send(res, made.length ? 200 : 400, { jobs: made, rejected: bad, error: made.length ? undefined : (bad[0] && bad[0].error) || 'Could not start.' });
     }
+    if (p === '/api/health') return send(res, 200, { app: 'deepscrape', version: require('./package.json').version, running: [...jobs.values()].filter(isLive).length, data: DATA });
     if (p === '/api/export-options') return send(res, 200, exporter.options());
     if (p === '/api/lenses') return send(res, 200, { families: lensLib.families(), total: lensLib.totalLenses, formats: Object.entries(FORMATS).map(([id, f]) => ({ id, label: f.label })), detail: DETAIL });
     if (p === '/api/settings') {
@@ -490,23 +491,28 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.on('error', (e) => {
-  if (e.code === 'EADDRINUSE') { console.error(`Port ${PORT} is busy - DeepScrape may already be running. Open http://localhost:${PORT} or start with --port <other>.`); process.exit(1); }
+  if (e.code === 'EADDRINUSE') { console.error(`Port ${PORT} is busy - DeepScrape may already be running. Open http://localhost:${PORT} or start with --port <other>.`); if (process.send) process.send({ busy: true, port: PORT }); process.exit(1); }
   throw e;
 });
 server.listen(PORT, '127.0.0.1', () => {
   const url = `http://localhost:${PORT}`;
   console.log(`DeepScrape dashboard: ${url}\nResults folder:       ${DATA}\nLeave this window open while scraping. Ctrl+C to quit.`);
+  if (process.send) process.send({ ready: true, port: PORT, data: DATA });
   if (!args.includes('--no-open')) {
     const cmd = process.platform === 'win32' ? ['cmd', ['/c', 'start', '', url]] : process.platform === 'darwin' ? ['open', [url]] : ['xdg-open', [url]];
     try { spawn(cmd[0], cmd[1], { stdio: 'ignore', detached: true }).on('error', () => {}).unref(); } catch { /* open it by hand */ }
   }
 });
 let quitting = false;
-process.on('SIGINT', async () => {
+async function shutdown() {
   if (quitting) process.exit(1); quitting = true;
   const live = [...jobs.values()].filter(isLive);
   if (live.length) console.log('\nSaving progress of running scrapes...');
   live.forEach((j) => j.crawl.stop());
   for (let i = 0; i < 150 && [...jobs.values()].some(isLive); i++) await new Promise((r) => setTimeout(r, 200));
   process.exit(0);
-});
+}
+process.on('SIGINT', shutdown);
+// The desktop app starts this file as a child process and asks it to stop with a message (Windows has no SIGINT for child processes).
+process.on('message', (m) => { if (m === 'shutdown') shutdown(); });
+process.on('disconnect', () => { if (process.env.DEEPSCRAPE_DESKTOP === '1') shutdown(); });
