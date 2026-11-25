@@ -84,9 +84,15 @@ process.on('unhandledRejection', (e) => { console.error(e); process.exit(1); });
   await page.click('#tabs button[data-t=export]'); await page.waitForSelector('.topicgrid .topic'); await page.waitForTimeout(300); await page.screenshot({ path: path.join(shots, 'dash-10-export-topics.png'), fullPage: true });
   { const n = await page.locator('.topicgrid .topic').count(); const href = await page.locator('.topicgrid .topic a.btn.best').first().getAttribute('href');
     const r = await fetch(dash + href); const buf = Buffer.from(await r.arrayBuffer());
-    check('export by topic: nine topics, and the first one downloads', n === 9 && r.ok && buf.length > 2000, `${n} ${r.status} ${buf.length}`);
+    check('export by topic: ten topics, and the first one downloads', n === 10 && r.ok && buf.length > 2000, `${n} ${r.status} ${buf.length}`);
     const zr = await fetch(dash + href.replace(/topic=\w+/, 'topic=design').replace(/format=\w+/, 'format=zip')); const zb = Buffer.from(await zr.arrayBuffer()).toString('latin1');
-    check('design pack carries tokens, a style sheet and a report', ['design-tokens.css', 'design-tokens.json', 'style-sheet.html', 'report.html', 'data.xlsx'].every((x) => zb.includes(x))); }
+    check('design pack carries tokens, a starter stylesheet, a style sheet and a report', ['design-tokens.css', 'design-tokens.json', 'starter.css', 'style-sheet.html', 'report.html', 'data.xlsx'].every((x) => zb.includes(x)));
+    const sr = await fetch(dash + href.replace(/topic=\w+/, 'topic=security').replace(/format=\w+/, 'format=zip')); const sb = Buffer.from(await sr.arrayBuffer()).toString('latin1');
+    check('security pack carries the score and the header set-up files', ['scores.json', 'security-setup/nginx.conf', 'security-setup/apache.htaccess', 'security-setup/express.js', 'report.html'].every((x) => sb.includes(x)));
+    const md = await (await fetch(dash + href.replace(/topic=\w+/, 'topic=security').replace(/format=\w+/, 'format=md'))).text();
+    check('security report has a summary, a score with deductions and page-by-page tables', /## Summary/.test(md) && /## Score: \d+ out of 100 \(grade [A-F]\+?\)/.test(md) && /Protective headers, page by page/.test(md) && /Security facts, page by page/.test(md));
+    const site = await (await fetch(dash + href.split('/export')[0])).json();
+    check('the scrape carries five scores and an overall grade', site.summary && site.summary.scores && Object.keys(site.summary.scores.areas).length === 5 && typeof site.summary.scores.overall === 'number', JSON.stringify(site.summary && site.summary.scores).slice(0, 200)); }
   await page.click('[data-es=custom]'); await page.waitForSelector('#exgo'); await page.waitForTimeout(1200); await page.screenshot({ path: path.join(shots, 'dash-11-export.png'), fullPage: true }); await page.click('[data-preset=designer]'); await page.waitForTimeout(900); await page.locator('.summarybar').screenshot({ path: path.join(shots, 'dash-11b-export-summary.png') });
   await page.click('[data-es=lens]'); await page.waitForSelector('#repfams'); await page.click('[data-es=raw]'); await page.waitForTimeout(200); await page.click('[data-es=custom]');
   await page.click('#aibtn'); await page.waitForSelector('#ai-add'); await page.screenshot({ path: path.join(shots, 'dash-12-your-ai.png') }); await page.click('#aibtn');

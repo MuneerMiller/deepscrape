@@ -117,6 +117,7 @@ function startJob(job, resume) {
 async function loadSite(job) {
   if (job.crawl) return null;
   if (!job.site) { try { job.site = JSON.parse(await fsp.readFile(path.join(JOBS_DIR, job.meta.id, 'site.json'), 'utf8')); } catch { return null; } }
+  if (job.site && !job.site.scores && job.site.perspectives) { try { job.site.scores = require('./lib/scores').scorecard(job.site); } catch { /* an older scrape that cannot be scored */ } }   // scrapes made before scores existed
   return job.site;
 }
 async function pagesOf(job) {
@@ -257,7 +258,7 @@ const server = http.createServer(async (req, res) => {
         for (const j of members) {
           const site = await loadSite(j); let hi = null;
           if (site && site.perspectives) { const P = site.perspectives; const a = P.accessibility;
-            hi = { pages: site.stats.pages, words: P.content.totalWords, https: /^https:/.test(site.startUrl), serious: P.security.summary.high, shouldFix: P.security.summary.medium, pageBytes: P.performance.averages.pageBytes, largestPaintMs: P.performance.averages.largestPaintMs, accessibilityProblems: a.lowContrastText + a.imagesWithoutDescription + a.formFieldsWithoutLabel + a.linksWithoutText + a.buttonsWithoutName, brokenLinks: site.issues.brokenInternalLinks.length, otherHosts: P.privacy.thirdParties.length, trackers: [...new Set(P.privacy.trackers.map((t) => t.service))], builtWith: site.technologies.slice(0, 6).map((t) => t.name), documents: (site.documents || []).length, needSignIn: (site.needSignIn || []).length, prices: ((P.signals || {}).priceExamples || {}).values || [], readingEase: (P.signals || {}).readingEase ? Math.round(P.signals.readingEase.sum / P.signals.readingEase.pages) : null };
+            hi = { scores: site.scores ? { overall: site.scores.overall, grade: site.scores.grade, ...Object.fromEntries(Object.entries(site.scores.areas).map(([k, v]) => [k, v.score])) } : null, pages: site.stats.pages, words: P.content.totalWords, https: /^https:/.test(site.startUrl), serious: P.security.summary.high, shouldFix: P.security.summary.medium, pageBytes: P.performance.averages.pageBytes, largestPaintMs: P.performance.averages.largestPaintMs, accessibilityProblems: a.lowContrastText + a.imagesWithoutDescription + a.formFieldsWithoutLabel + a.linksWithoutText + a.buttonsWithoutName, brokenLinks: site.issues.brokenInternalLinks.length, otherHosts: P.privacy.thirdParties.length, trackers: [...new Set(P.privacy.trackers.map((t) => t.service))], builtWith: site.technologies.slice(0, 6).map((t) => t.name), documents: (site.documents || []).length, needSignIn: (site.needSignIn || []).length, prices: ((P.signals || {}).priceExamples || {}).values || [], readingEase: (P.signals || {}).readingEase ? Math.round(P.signals.readingEase.sum / P.signals.readingEase.pages) : null };
           }
           out.push({ ...publicJob(j), highlights: hi });
         }

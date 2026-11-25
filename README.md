@@ -281,14 +281,42 @@ Switch it off under Options or with `--no-self-check`.
 
 ### By topic
 
-The Export tab opens on **By topic**: Security, Design, Accessibility, Speed, Privacy,
-Search and content quality, Technology and hosting, Legal and contacts, and All the
-content. Pick a topic and a format (PDF report, Word, Excel, Markdown, web page, JSON,
-CSV) and you get everything the scrape found on that topic: its key facts, its
-detailed lists, and the data behind them. **Complete pack (ZIP)** adds a ready-to-read
-report, an Excel workbook and the files that belong to the topic. The Design pack also
-carries `design-tokens.css`, `design-tokens.json` and a style sheet page with colour
-swatches and type samples.
+The Export tab opens on **By topic**: Scorecard, Security, Design, Accessibility, Speed,
+Privacy, Search and content quality, Technology and hosting, Legal and contacts, and
+All the content. Pick a topic and a format (PDF report, Word, Excel, Markdown, web
+page, JSON, CSV).
+
+Each topic report is written to be read on its own:
+
+- a **summary** in plain sentences, including what the review covers and what it cannot;
+- the **score** out of 100 with every point lost, why, and how to fix it, biggest first;
+- **page-by-page tables** (for security: every protective header on every page, and
+  the security facts of every page; for accessibility: every problem count per page
+  with the WCAG criterion; for speed: weight and timings of every page);
+- the key facts and full lists from the review, and the data sets behind them.
+
+**Complete pack (ZIP)** adds the report as a web page and Markdown, an Excel workbook,
+`scores.json`, and the topic's own files:
+
+- **Design:** `design-tokens.css`, `design-tokens.json`, `starter.css` (a base
+  stylesheet applying the site's type and element styles), `style-sheet.html`
+  (swatches and type samples) and a desktop and phone screenshot of every page.
+- **Security:** `security-setup/` with the protective headers the site sends, written
+  for nginx, Apache, Express and Netlify or Cloudflare Pages, plus recommended values
+  for the ones it does not send (commented out).
+
+### Scores
+
+Every scrape gets a score out of 100 and a grade (A+ to F) for security,
+accessibility, speed, privacy and search basics, and an overall average. Each area
+starts at 100 and loses points per problem found; every deduction is listed, so a score
+can be checked. The method is the same for every site (`lib/scores.js`), so sites can
+be compared: scrape several together and the side-by-side table shows their scores.
+
+The security score is a **passive** measure of what any visitor's browser is sent:
+headers, cookies, forms, certificate, visible code. Nothing is attacked or probed. It
+shows how carefully a site's visible settings are configured, not whether it can be
+broken into.
 
 From the command line: `node scrape.js export <folder> --topic design --format zip`.
 
