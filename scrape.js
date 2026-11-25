@@ -81,8 +81,10 @@ BROWSER / SPEED
   --user-agent <ua>     Custom user agent
   --viewport <WxH>      Browser size (default 1366x900)
   --insecure            Ignore HTTPS certificate errors
-  --concurrency <n>     Pages scraped in parallel (default 3)
-  --delay <ms>          Pause between pages per worker (default 300)
+  --no-self-check       Skip the accuracy check (a few pages re-read slowly at the end and compared)
+  --speed <pace>        gentle, balanced (default) or fast: how many pages are open together, adapting to the site
+  --concurrency <n>     Set the pace yourself: pages scraped in parallel
+  --delay <ms>          Set the pace yourself: shortest gap between opening two pages
   --resume              Continue an interrupted crawl (use with the same --out folder)
 `;
 
@@ -90,9 +92,9 @@ function die(msg) { console.error(msg); process.exit(1); }
 function parseArgs(argv) {
   const o = { _: [], interactive: !!process.stdin.isTTY };
   const num = (v, name) => { const n = Number(v); if (!isFinite(n)) die(`--${name} needs a number`); return n; };
-  const VALUE = { files: 'files_', section: 'section', contains: 'contains', result: 'result', search: 'searchTerms', lenses: 'lensFamilies', format: 'format', families: 'families', detail: 'detail', list: 'list', out: 'out', 'path-prefix': 'pathPrefix', include: 'include', exclude: 'exclude', state: 'state', 'user-agent': 'userAgent', viewport: 'viewport', 'wait-for': 'waitFor', click: 'click' };
+  const VALUE = { files: 'files_', section: 'section', contains: 'contains', result: 'result', search: 'searchTerms', lenses: 'lensFamilies', format: 'format', families: 'families', detail: 'detail', list: 'list', out: 'out', 'path-prefix': 'pathPrefix', include: 'include', exclude: 'exclude', state: 'state', 'user-agent': 'userAgent', viewport: 'viewport', 'wait-for': 'waitFor', click: 'click', speed: 'speed', topic: 'topic' };
   const NUM = { 'sites-at-once': 'sitesAtOnce', 'max-depth': 'maxDepth', concurrency: 'concurrency', delay: 'delay', 'max-file-mb': 'maxFileMb', timeout: 'timeout', wait: 'wait', 'max-clicks': 'maxClicks', 'scroll-ms': 'scrollMs', retries: 'retries' };
-  const FLAG = { subdomains: ['subdomains', true], 'no-assets': ['assets', false], 'no-files': ['files', false], 'no-screenshots': ['screenshots', false], 'no-sitemap': ['sitemap', false], 'ignore-robots': ['robots', false], mhtml: ['mhtml', true], ocr: ['ocr', true], 'no-mobile': ['mobileScreenshots', false], 'no-interact': ['interact', false], 'no-doc-text': ['docText', false], 'no-data-links': ['discoverFromData', false], resume: ['resume', true], headful: ['headful', true], insecure: ['insecure', true], login: ['loginFirst', true], 'no-login-window': ['interactive', false] };
+  const FLAG = { subdomains: ['subdomains', true], 'no-assets': ['assets', false], 'no-files': ['files', false], 'no-screenshots': ['screenshots', false], 'no-sitemap': ['sitemap', false], 'ignore-robots': ['robots', false], mhtml: ['mhtml', true], ocr: ['ocr', true], 'no-mobile': ['mobileScreenshots', false], 'no-self-check': ['selfCheck', false], 'no-interact': ['interact', false], 'no-doc-text': ['docText', false], 'no-data-links': ['discoverFromData', false], resume: ['resume', true], headful: ['headful', true], insecure: ['insecure', true], login: ['loginFirst', true], 'no-login-window': ['interactive', false] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (!a.startsWith('--')) { o._.push(a); continue; }
@@ -136,8 +138,8 @@ const running = new Set();
   if (urls[0] === 'lenses') { const L = require('./lib/lenses'); for (const f of L.families()) console.log(`${String(f.id).padStart(2)}  ${f.name} (${f.lenses} lenses)`); console.log(`\n${L.totalLenses} lenses in all. Use --lenses 6,13 to scrape for chosen families, or --families 6,13 when building a report.`); process.exit(0); }
   if (urls[0] === 'export') {
     const ex = require('./lib/exporter');
-    if (!urls[1]) { const o = ex.options(); console.log('Data sets:  ' + o.datasets.map((d) => d.id).join(', ') + '\nFile groups (ZIP only):  ' + o.files.map((d) => d.id).join(', ') + '\nFormats:  ' + o.formats.map((d) => d.id).join(', ')); process.exit(0); }
-    try { const r = await ex.buildExport(path.resolve(urls[1]), { include: String(opts.include || 'pages').split(','), files: (opts.files_ || '').split(',').filter(Boolean), format: format || 'xlsx', section: opts.section, contains: opts.contains, result: opts.result }); const to = path.resolve(opts.out || path.join(urls[1], r.filename)); fs.writeFileSync(to, r.buffer); console.log(`Export written: ${to}`); process.exit(0); } catch (e) { die(e.message); }
+    if (!urls[1]) { const o = ex.options(); console.log('Topics (--topic):  ' + o.topics.map((d) => d.id).join(', ') + '\nData sets (--include):  ' + o.datasets.map((d) => d.id).join(', ') + '\nFile groups (ZIP only):  ' + o.files.map((d) => d.id).join(', ') + '\nFormats:  ' + o.formats.map((d) => d.id).join(', ')); process.exit(0); }
+    try { const r = await ex.buildExport(path.resolve(urls[1]), { topic: opts.topic, include: opts.topic && !opts.include ? [] : String(opts.include || 'pages').split(','), files: (opts.files_ || '').split(',').filter(Boolean), format: format || (opts.topic ? undefined : 'xlsx'), section: opts.section, contains: opts.contains, result: opts.result }); const to = path.resolve(opts.out || path.join(urls[1], r.filename)); fs.writeFileSync(to, r.buffer); console.log(`Export written: ${to}`); process.exit(0); } catch (e) { die(e.message); }
   }
   if (urls[0] === 'report') {
     if (!urls[1]) die('Usage: node scrape.js report <scrape folder> [--format docx] [--families 6,13] [--detail full|findings|summary] [--out file]');

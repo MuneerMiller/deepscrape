@@ -19,6 +19,7 @@ const shots = process.argv[2] || os.tmpdir();
   await page.goto(dash);
   const listFile = path.join(data, 'sites.csv'); fs.writeFileSync(listFile, `name,website\nOne,${sites[0].url}\nTwo,${sites[1].url}\n`);
   await page.setInputFiles('#importfile', listFile);
+  await page.waitForFunction(() => document.querySelector('#url').value.split('\n').filter(Boolean).length >= 2);   // the list is read a moment after it is chosen
   await page.fill('#url', (await page.inputValue('#url')) + '\n' + sites[2].url + '\n' + sites[0].url);   // one more, plus a duplicate
   check('list imported and counted', (await page.textContent('#go')) === 'Scrape 3 websites', await page.textContent('#go'));
   await page.click('#go');

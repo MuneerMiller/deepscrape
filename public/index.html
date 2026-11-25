@@ -64,7 +64,7 @@ a{color:var(--accent)}
 details.opts{margin-top:12px} details.opts summary{cursor:pointer;color:var(--muted)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px 18px;margin-top:12px}
 .f label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:3px}
-.f input[type=text],.f input[type=number]{width:100%;border:1px solid var(--line);border-radius:7px;background:var(--bg);padding:6px 9px}
+.f input[type=text],.f input[type=number],.f select{width:100%;color:var(--ink);font:inherit;border:1px solid var(--line);border-radius:7px;background:var(--bg);padding:6px 9px}
 .chk{display:flex;gap:8px;align-items:flex-start} .chk small{display:block;color:var(--muted)}
 #starterr{color:var(--bad);margin-top:8px;min-height:1em;white-space:pre-line}
 #multi{display:flex;gap:12px;align-items:center;margin-top:8px;color:var(--muted);font-size:13px;flex-wrap:wrap}
@@ -153,6 +153,7 @@ dl.kv{display:grid;grid-template-columns:170px 1fr;gap:4px 14px;margin:0 0 16px}
 #scrim{position:fixed;inset:0;background:rgba(10,25,45,.25);opacity:0;pointer-events:none;transition:opacity .18s;z-index:19} #scrim.open{opacity:1;pointer-events:auto}
 @media (max-width:860px){body{grid-template-columns:1fr}#rail{position:static;height:auto;max-height:230px}#main{padding:16px}}
 dialog.ask .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)} dialog.ask{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:18px;min-width:320px;box-shadow:0 18px 50px rgba(0,0,0,.25)} dialog.ask::backdrop{background:rgba(10,20,30,.45)} dialog.ask label{display:grid;gap:8px;font-weight:600} dialog.ask input,dialog.ask select{border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);padding:7px 9px;font:inherit;font-weight:400} .askrow{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.topicgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px} .topic h3{font-size:16px;margin-bottom:4px} .topic p{color:var(--muted);margin:0 0 10px;min-height:2.8em} .topic .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center} .topic a.btn{text-decoration:none;color:inherit} .topic a.btn.best{border-color:var(--accent);color:var(--accent);font-weight:600} .topic select{border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);padding:3px 6px;font:inherit;font-size:12.5px} .topic small{display:block;color:var(--muted);margin-top:8px}
 </style>
 </head>
 <body>
@@ -197,8 +198,13 @@ dialog.ask .btn.primary{background:var(--accent);color:var(--accent-ink);border-
       <div class="grid">
         <div class="f"><label for="o-maxPages">Page limit (0 = no limit)</label><input type="number" id="o-maxPages" value="0" min="0"></div>
         <div class="f"><label for="o-maxDepth">Link depth limit (blank = none)</label><input type="number" id="o-maxDepth" min="0"></div>
-        <div class="f"><label for="o-concurrency">Pages at once</label><input type="number" id="o-concurrency" value="3" min="1" max="10"></div>
-        <div class="f"><label for="o-delay">Pause between pages (ms)</label><input type="number" id="o-delay" value="300" min="0"></div>
+        <div class="f"><label for="o-speed">Speed</label><select id="o-speed">
+          <option value="gentle">Gentle: one or two pages at a time, for small or fragile sites</option>
+          <option value="balanced" selected>Balanced: speeds up while the site keeps up</option>
+          <option value="fast">Fast: as quick as the site allows</option>
+          <option value="custom">Custom: set the numbers yourself</option></select></div>
+        <div class="f custom-speed" hidden><label for="o-concurrency">Pages at once</label><input type="number" id="o-concurrency" value="3" min="1" max="16"></div>
+        <div class="f custom-speed" hidden><label for="o-delay">Shortest gap between opening pages (ms)</label><input type="number" id="o-delay" value="300" min="0"></div>
         <div class="f"><label for="o-include">Only addresses matching (regex)</label><input type="text" id="o-include" placeholder="/blog/|/news/"></div>
         <div class="f"><label for="o-exclude">Skip addresses matching (regex)</label><input type="text" id="o-exclude" placeholder="/tag/|\?sort="></div>
         <div class="f"><label for="o-click">Keep clicking this button (CSS selector)</label><input type="text" id="o-click" placeholder='button.load-more'></div>
@@ -216,6 +222,7 @@ dialog.ask .btn.primary{background:var(--accent);color:var(--accent-ink);border-
         <label class="chk"><input type="checkbox" id="o-ocr"><span>Read text inside images<small>Banners, posters, scanned notices. Slow</small></span></label>
         <label class="chk"><input type="checkbox" id="o-discoverFromData" checked><span>Follow addresses in hidden data<small>Finds pages that are only mentioned in background data</small></span></label>
         <label class="chk"><input type="checkbox" id="o-mobileScreenshots" checked><span>Phone-size screenshots too</span></label>
+        <label class="chk"><input type="checkbox" id="o-selfCheck" checked><span>Accuracy check: re-read a few pages slowly at the end and compare</span></label>
         <label class="chk"><input type="checkbox" id="o-subdomains"><span>Include subdomains<small>blog.site.com, shop.site.com</small></span></label>
         <label class="chk"><input type="checkbox" id="o-assets" checked><span>Save images, styles and scripts</span></label>
         <label class="chk"><input type="checkbox" id="o-files" checked><span>Download documents<small>PDF, Word, Excel, ZIP, media</small></span></label>
@@ -240,6 +247,7 @@ dialog.ask .btn.primary{background:var(--accent);color:var(--accent-ink);border-
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+document.addEventListener('change', (e) => { if (e.target.id === 'o-speed') for (const el of document.querySelectorAll('.custom-speed')) el.hidden = e.target.value !== 'custom'; });
 // A small question box. Used instead of the browser's prompt(), which desktop app windows do not provide.
 function ask(question, def = '', choices = null) {
   return new Promise((resolve) => {
@@ -310,9 +318,10 @@ async function startScrape() {
   if (!urls.length) { $('#starterr').textContent = 'Paste a website address first.'; urlBox.focus(); return; }
   const v = (id) => $('#o-' + id).value.trim(); const c = (id) => $('#o-' + id).checked;
   const mode = $('input[name=mode]:checked').value;
-  const o = { maxPages: Number(v('maxPages') || 0), concurrency: Number(v('concurrency')) || 3, delay: Number(v('delay') || 0), wait: Number(v('wait') || 0), maxFileMb: Number(v('maxFileMb')) || 100,
+  const custom = v('speed') === 'custom';
+  const o = { maxPages: Number(v('maxPages') || 0), speed: v('speed'), ...(custom ? { concurrency: Number(v('concurrency')) || 3, delay: Number(v('delay') || 0) } : {}), wait: Number(v('wait') || 0), maxFileMb: Number(v('maxFileMb')) || 100,
     include: v('include'), exclude: v('exclude'), click: v('click'), waitFor: v('waitFor'), searchTerms: v('searchTerms'),
-    loginFirst: c('loginFirst'), useSavedSession: c('useSavedSession'), interact: c('interact'), docText: c('docText'), ocr: c('ocr'), discoverFromData: c('discoverFromData'), mobileScreenshots: c('mobileScreenshots'), subdomains: c('subdomains'), assets: c('assets'), files: c('files'), screenshots: c('screenshots'), mhtml: c('mhtml'), sitemap: c('sitemap'), robots: c('robots'), insecure: c('insecure') };
+    loginFirst: c('loginFirst'), useSavedSession: c('useSavedSession'), interact: c('interact'), docText: c('docText'), ocr: c('ocr'), discoverFromData: c('discoverFromData'), mobileScreenshots: c('mobileScreenshots'), selfCheck: c('selfCheck'), subdomains: c('subdomains'), assets: c('assets'), files: c('files'), screenshots: c('screenshots'), mhtml: c('mhtml'), sitemap: c('sitemap'), robots: c('robots'), insecure: c('insecure') };
   if (v('maxDepth') !== '') o.maxDepth = Number(v('maxDepth'));
   if ($('input[name=scope]:checked').value === 'pick') { const fam = pickedFamilies(); if (!fam.length) { $('#starterr').textContent = 'Tick at least one lens family, or choose "Examine everything".'; return; } o.lensFamilies = fam; }
   $('#go').disabled = true;
@@ -515,12 +524,12 @@ function tabOverview(el) {
   const j = S.job, st = j.stats || {}, sum = j.summary, live = LIVE.includes(j.status), P = S.pages;
   const problems = P.filter((p) => p.error || p.status >= 400).length;
   const el2 = st.elapsedMs || (j.durationSeconds || 0) * 1000; const speed = el2 > 3000 ? (P.length / (el2 / 60000)).toFixed(1) : '0';
-  const tiles = [['Pages scraped', P.length], ['In the queue', st.queued ?? st.stillQueued ?? 0], ['Images & assets', st.assetsSaved ?? st.assets ?? 0], ['Documents', st.filesDownloaded ?? st.files ?? 0], ['Hidden data responses', st.apiResponsesCaptured ?? st.apiResponses ?? 0], ['Documents read', st.documentsRead ?? 0], ['Problem pages', problems, problems > 0], ['Need a sign-in', st.pagesNeedingSignIn ?? st.needSignIn ?? 0], ['Saved', bytes(st.bytesSaved || 0)], ['Time', dur(el2)], ['Pages per minute', speed]];
+  const tiles = [['Pages scraped', P.length], ['In the queue', st.queued ?? st.stillQueued ?? 0], ['Images & assets', st.assetsSaved ?? st.assets ?? 0], ['Documents', st.filesDownloaded ?? st.files ?? 0], ['Hidden data responses', st.apiResponsesCaptured ?? st.apiResponses ?? 0], ['Documents read', st.documentsRead ?? 0], ['Problem pages', problems, problems > 0], ['Need a sign-in', st.pagesNeedingSignIn ?? st.needSignIn ?? 0], ['Saved', bytes(st.bytesSaved || 0)], ['Time', dur(el2)], ['Pages per minute', speed], ...(live && st.atOnce ? [['Pages open at once', st.atOnce]] : [])];
   const queued = live ? Math.min(st.queued || 0, 600) : 0;
   const act = new Set(st.active || []);
   const by = (f) => { const m = new Map(); for (const p of P) { const k = f(p); m.set(k, (m.get(k) || 0) + 1); } return [...m].sort((a, b) => String(a[0]).localeCompare(String(b[0]), undefined, { numeric: true })); };
   const bars = (rows) => { const max = Math.max(1, ...rows.map((r) => r[1])); return rows.map(([k, n]) => `<div class="bar"><span>${esc(k)}</span><div><b style="width:${(n / max) * 100}%"></b></div><span class="num">${n}</span></div>`).join(''); };
-  el.innerHTML = `<div class="tiles">${tiles.map(([l, n, bad]) => `<div class="card tile ${bad ? 'alert' : ''}"><span class="num">${esc(n)}</span><small>${l}</small></div>`).join('')}</div>
+  el.innerHTML = `<div class="tiles">${tiles.map(([l, n, bad]) => `<div class="card tile ${bad ? 'alert' : ''}"><span class="num">${esc(n)}</span><small>${l}</small></div>`).join('')}</div>${sum && sum.selfCheck ? `<div class="card panel" style="margin:12px 0"><h3 style="font-size:15px">Accuracy check</h3><p style="margin:4px 0 0">${sum.selfCheck.pagesInAgreement} of ${sum.selfCheck.pagesChecked} sampled pages match a slow second reading (average coverage ${sum.selfCheck.averageCoverage}%). <span style="color:var(--muted)">${esc(sum.selfCheck.note)}</span></p>${sum.selfCheck.differing.length ? `<ul style="margin:8px 0 0;padding-left:18px">${sum.selfCheck.differing.map((d) => `<li><b>${d.coverage}%</b> ${esc(d.url)}${d.missing.length ? `<br><small style="color:var(--muted)">Seen only on the second reading: ${d.missing.map(esc).join(' | ')}</small>` : ''}</li>`).join('')}</ul>` : ''}</div>` : ''}
   <div class="card panel" style="margin-bottom:14px"><h3>Every page, one square each</h3><div id="mosaic">${P.map((p, i) => `<i class="${stClass(p)}" data-i="${i}" title="${esc((p.status || 'failed') + '  ' + p.url)}"></i>`).join('')}${[...act].map((u) => `<i class="act" title="Scraping now: ${esc(u)}"></i>`).join('')}${'<i class="q"></i>'.repeat(queued)}</div>
     <div class="legend"><span><i style="background:var(--good)"></i>Loaded</span><span><i style="background:var(--warn)"></i>Not found or refused</span><span><i style="background:var(--bad)"></i>Server error or failed</span>${live ? '<span><i style="background:var(--accent)"></i>Scraping now</span><span><i style="background:var(--line)"></i>Queued</span>' : ''}<span>Click a square to open the page.</span></div></div>
   <div class="cols">
@@ -715,7 +724,7 @@ function tabAbout(el) {
     <div class="card panel"><h3>Other sites this one links to <span class="n num">${sum.externalLinks.length}</span></h3><div class="scroll" style="max-height:300px">${list(sum.externalLinks.slice(0, 600), (x) => `<a href="${esc(x)}" target="_blank" rel="noopener noreferrer">${esc(x)}</a>`)}</div></div></div>`;
 }
 function tabLog(el) { el.innerHTML = `<div class="log tall" id="fulllog">${esc(S.log.map((l) => l.line).join('\n')) || 'Nothing logged in this session. The full log is in crawl.log inside the results folder.'}</div>`; const l = $('#fulllog'); l.scrollTop = l.scrollHeight; }
-let repFams = null, repDetail = 'findings', EXP = null, expSub = 'custom';
+let repFams = null, repDetail = 'findings', EXP = null, expSub = 'topic';
 const expState = (() => { try { return JSON.parse(localStorage.getItem('ds-export')) || {}; } catch { return {}; } })();
 const saveExp = () => { try { localStorage.setItem('ds-export', JSON.stringify(expState)); } catch {} };
 async function tabExport(el) {
@@ -723,9 +732,21 @@ async function tabExport(el) {
   if (!done) { el.innerHTML = `<div class="empty">Exports can be built once the scrape has finished. ${LIVE.includes(S.job.status) ? 'It is still running.' : 'Use "Continue where it stopped" so it can finish.'}</div><p><a class="btn" href="/api/jobs/${S.id}/zip">Download what has been saved so far (ZIP)</a></p>`; return; }
   if (!EXP) EXP = await api('/api/export-options');
   if (!expState.include) Object.assign(expState, { include: ['pages', 'content', 'links', 'security', 'checks'], files: [], format: 'xlsx' });
-  el.innerHTML = `<div class="subtabs">${[['custom', 'Choose what to export'], ['lens', 'Lens report'], ['raw', 'Raw files']].map(([k, n]) => `<button class="${expSub === k ? 'on' : ''}" data-es="${k}">${n}</button>`).join('')}</div><div id="expbody"></div>`;
+  el.innerHTML = `<div class="subtabs">${[['topic', 'By topic'], ['custom', 'Choose what to export'], ['lens', 'Lens report'], ['raw', 'Raw files']].map(([k, n]) => `<button class="${expSub === k ? 'on' : ''}" data-es="${k}">${n}</button>`).join('')}</div><div id="expbody"></div>`;
   el.querySelector('.subtabs').onclick = (e) => { const b = e.target.closest('button'); if (b) { expSub = b.dataset.es; tabExport(el); } };
-  ({ custom: expCustom, lens: expLens, raw: expRaw }[expSub])($('#expbody'));
+  ({ topic: expTopic, custom: expCustom, lens: expLens, raw: expRaw }[expSub])($('#expbody'));
+}
+// One card per angle (security, design, ...): everything the scrape learned about it, in the format you pick.
+function expTopic(el) {
+  const base = S.batchId && !S.id ? `/api/batches/${S.batchId}/export` : `/api/jobs/${S.id}/export`;
+  const kinds = [['pdf', 'PDF report'], ['docx', 'Word'], ['xlsx', 'Excel'], ['zip', 'Complete pack (ZIP)']];
+  const more = [['md', 'Markdown'], ['html', 'Web page'], ['json', 'JSON'], ['csv', 'CSV']];
+  el.innerHTML = `<p style="color:var(--muted);max-width:88ch;margin:0 0 12px">Pick a topic and a format. Each export holds everything this scrape found on that topic: the key facts, the detailed lists and the data behind them. The complete pack adds a ready-to-read report, an Excel workbook and the files that belong to the topic.</p>
+    <div class="topicgrid">${EXP.topics.map((t) => `<div class="card panel topic"><h3>${esc(t.label)}</h3><p>${esc(t.about)}</p>
+      <div class="chips">${kinds.map(([f, n]) => `<a class="btn sm${f === t.best ? ' best' : ''}" href="${base}?topic=${t.id}&format=${f}" download>${n}</a>`).join('')}
+      <select class="morefmt" data-topic="${t.id}" aria-label="More formats for ${esc(t.label)}"><option value="">More formats</option>${more.map(([f, n]) => `<option value="${f}">${n}</option>`).join('')}</select></div>
+      ${t.id === 'design' ? '<small>The pack includes design-tokens.css, design-tokens.json and a style sheet page with swatches and type samples.</small>' : ''}</div>`).join('')}</div>`;
+  el.onchange = (e) => { const sel = e.target.closest('.morefmt'); if (!sel || !sel.value) return; const a = document.createElement('a'); a.href = `${base}?topic=${sel.dataset.topic}&format=${sel.value}`; a.download = ''; document.body.appendChild(a); a.click(); a.remove(); sel.value = ''; };
 }
 function expCustom(el) {
   const st = expState; const scope = S.exportScope && S.exportScope.id === S.id ? S.exportScope : (S.exportScope = { id: S.id, section: '', contains: '', result: '' });

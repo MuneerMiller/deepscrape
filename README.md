@@ -238,6 +238,34 @@ There are also focused reviews: **Security** (graded findings with fixes),
 sends to any visitor and never sends attacks, guesses passwords or probes for
 hidden files.
 
+## Speed and accuracy
+
+DeepScrape does not wait on fixed timers. It watches each page's own network requests
+and changes, moves on the moment the page has finished building, and ignores requests
+that just keep repeating (analytics, polling), which make other tools wait out a
+timeout on every page. The number of pages open together adapts: it grows while the
+site answers quickly and is cut back the moment the site slows down or says so.
+
+Choose a pace under Options, or `--speed` on the command line:
+
+| Pace | Pages open together | Use it for |
+| --- | --- | --- |
+| Gentle | 1 to 2 | Small or fragile sites |
+| Balanced (default) | 3, growing to 6 | Most sites |
+| Fast | 5, growing to 10 | Sites you own or that can take it |
+| Custom | You set the numbers | Special cases |
+
+`npm run benchmark` times a scrape of a built-in site with slow-loading data, lazy
+images, tabs and a page that never stops polling. On a 2-core machine it went from 27
+pages a minute to 117 (Balanced) and 138 (Fast), with identical words, images,
+revealed text and screenshots.
+
+**Accuracy check.** Speed must not cost content, so every scrape proves it on the site
+itself: at the end, a sample of pages is opened again the slow way (long waits, slow
+scrolling) and each line of text seen then is looked up in what was saved. The overview
+shows how many sampled pages matched and lists any that differ, with the text involved.
+Switch it off under Options or with `--no-self-check`.
+
 ## How it finds everything
 
 - Follows every link in the rendered page, including inside shadow DOM and iframes
@@ -250,6 +278,19 @@ hidden files.
 - Can be paused, stopped and continued later, also after closing the app
 
 ## Exporting
+
+### By topic
+
+The Export tab opens on **By topic**: Security, Design, Accessibility, Speed, Privacy,
+Search and content quality, Technology and hosting, Legal and contacts, and All the
+content. Pick a topic and a format (PDF report, Word, Excel, Markdown, web page, JSON,
+CSV) and you get everything the scrape found on that topic: its key facts, its
+detailed lists, and the data behind them. **Complete pack (ZIP)** adds a ready-to-read
+report, an Excel workbook and the files that belong to the topic. The Design pack also
+carries `design-tokens.css`, `design-tokens.json` and a style sheet page with colour
+swatches and type samples.
+
+From the command line: `node scrape.js export <folder> --topic design --format zip`.
 
 The **Export** tab has three parts.
 
@@ -340,8 +381,8 @@ node scrape.js --help
 
 ## Tests
 
-`npm test` runs four end-to-end tests against a built-in local test site: the
-crawler (108 checks), the sign-in flow, the dashboard, and several websites at once. On Linux without a
+`npm test` runs six end-to-end tests against a built-in local test site: the
+crawler (108 checks), the sign-in flow, the dashboard, several websites at once, a slow-starting site, and speed against content. On Linux without a
 screen, run it under `xvfb-run`. `npm run test:desktop` checks the desktop app window.
 
 ## Licence

@@ -17,7 +17,7 @@ const { buildReport, FORMATS, DETAIL } = require('./lib/report');
 const { compare } = require('./lib/compare');
 const ai = require('./lib/ai');
 const exporter = require('./lib/exporter');
-const exportQuery = (u) => ({ include: (u.searchParams.get('include') || '').split(',').filter(Boolean), files: (u.searchParams.get('files') || '').split(',').filter(Boolean), format: u.searchParams.get('format') || 'xlsx', section: u.searchParams.get('section') || '', contains: u.searchParams.get('contains') || '', result: u.searchParams.get('result') || '' });
+const exportQuery = (u) => ({ include: (u.searchParams.get('include') || '').split(',').filter(Boolean), files: (u.searchParams.get('files') || '').split(',').filter(Boolean), format: u.searchParams.get('format') || (u.searchParams.get('topic') ? undefined : 'xlsx'), topic: u.searchParams.get('topic') || undefined, section: u.searchParams.get('section') || '', contains: u.searchParams.get('contains') || '', result: u.searchParams.get('result') || '' });
 const sendFile = (res, r) => { res.writeHead(200, { 'content-type': r.mime, 'content-length': r.buffer.length, 'content-disposition': `attachment; filename="${r.filename.replace(/[^\w.-]+/g, '-')}"`, 'cache-control': 'no-store' }); res.end(r.buffer); };
 const famList = (q) => (q || '').split(',').map(Number).filter((n) => n > 0);
 
@@ -37,7 +37,7 @@ const TEST_LOGIN = process.env.DEEPSCRAPE_TEST_LOGIN === '1';   // automated tes
 fs.mkdirSync(JOBS_DIR, { recursive: true }); fs.mkdirSync(SESSIONS_DIR, { recursive: true });
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.json': 'application/json; charset=utf-8', '.jsonl': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8', '.txt': 'text/plain; charset=utf-8', '.csv': 'text/csv; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.avif': 'image/avif', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.css': 'text/css', '.js': 'text/plain; charset=utf-8', '.pdf': 'application/pdf', '.mp4': 'video/mp4', '.mp3': 'audio/mpeg', '.woff2': 'font/woff2', '.woff': 'font/woff', '.xml': 'text/plain; charset=utf-8', '.mhtml': 'application/octet-stream' };
-const ALLOWED_OPTS = ['maxPages', 'maxDepth', 'concurrency', 'delay', 'retries', 'subdomains', 'pathPrefix', 'include', 'exclude', 'assets', 'screenshots', 'mhtml', 'files', 'maxFileMb', 'robots', 'sitemap', 'userAgent', 'timeout', 'wait', 'waitFor', 'click', 'maxClicks', 'insecure', 'viewport', 'loginFirst', 'interact', 'docText', 'ocr', 'discoverFromData', 'mobileScreenshots', 'lensFamilies', 'searchTerms'];
+const ALLOWED_OPTS = ['maxPages', 'maxDepth', 'speed', 'selfCheck', 'concurrency', 'delay', 'retries', 'subdomains', 'pathPrefix', 'include', 'exclude', 'assets', 'screenshots', 'mhtml', 'files', 'maxFileMb', 'robots', 'sitemap', 'userAgent', 'timeout', 'wait', 'waitFor', 'click', 'maxClicks', 'insecure', 'viewport', 'loginFirst', 'interact', 'docText', 'ocr', 'discoverFromData', 'mobileScreenshots', 'lensFamilies', 'searchTerms'];
 const hostOf = (u) => new URL(u).hostname.replace(/^www\./, '').toLowerCase();
 const sessionFile = (host) => path.join(SESSIONS_DIR, host.replace(/[^a-z0-9.-]/gi, '_') + '.json');
 const safeId = (s) => /^[A-Za-z0-9._-]+$/.test(s) && !s.includes('..');
