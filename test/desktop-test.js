@@ -29,10 +29,11 @@ const check = (name, ok, extra = '') => { console.log(`${ok ? 'ok  ' : 'FAIL'} $
   const second = await app.evaluate(({ app: a }) => a.hasSingleInstanceLock());
   check('only one copy runs at a time', second === true);
 
-  const closed = new Promise((resolve) => app.process().once('exit', resolve));
-  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close());
+  const proc = app.process();
+  const closed = new Promise((resolve) => proc.once('exit', resolve));
+  await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].close()).catch(() => {});   // the app may be gone before the call returns
   await Promise.race([closed, new Promise((r) => setTimeout(r, 20000))]);
-  check('closing the window quits the app', app.process().exitCode !== null);
+  check('closing the window quits the app', proc.exitCode !== null);
   await new Promise((r) => setTimeout(r, 500));
   check('scraper stopped with it', (await get(base + '/api/health')) === null);
   fs.rmSync(data, { recursive: true, force: true });

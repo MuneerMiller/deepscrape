@@ -1,6 +1,6 @@
 {
   "name": "deepscrape",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Scrape a whole website in a real browser, review it through 1,860 lenses, and export what you choose. Runs on your own computer.",
   "main": "lib/crawler.js",
   "bin": {
@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node server.js",
     "scrape": "node scrape.js",
-    "test": "node test/run-test.js && node test/login-test.js && node test/dashboard-test.js && node test/batch-test.js",
+    "test": "node test/run-test.js && node test/login-test.js && node test/dashboard-test.js && node test/batch-test.js && node test/slow-start-test.js",
     "app": "electron electron/main.js",
     "icon": "node tools/make-icon.js",
     "build:win": "node tools/build-win.js",
