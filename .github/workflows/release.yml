@@ -1,4 +1,5 @@
-# Builds the Windows installer and publishes it as a release whenever a version tag (v2.0.1, v2.1.0, ...) is pushed.
+# Builds the Windows installer and attaches it to the release whenever a version tag (v2.0.1, v2.1.0, ...) is created,
+# for example by publishing a release with a new tag on the GitHub website.
 name: Release
 
 on:
@@ -35,4 +36,9 @@ jobs:
           Scrapes are saved in `Documents\DeepScrape\data` and are kept when you update or uninstall.
           NOTES
           sed -i "s/\${VERSION}/${GITHUB_REF_NAME#v}/" notes.md
-          gh release create "$GITHUB_REF_NAME" dist/DeepScrape-Setup-*.exe --title "DeepScrape ${GITHUB_REF_NAME#v}" --notes-file notes.md --generate-notes
+          # The release may already exist (created on the website, which also creates the tag); then only add the installer.
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/DeepScrape-Setup-*.exe --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/DeepScrape-Setup-*.exe --title "DeepScrape ${GITHUB_REF_NAME#v}" --notes-file notes.md
+          fi
