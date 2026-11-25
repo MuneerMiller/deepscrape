@@ -1,0 +1,37 @@
+{
+  "name": "deepscrape",
+  "version": "2.0.0",
+  "description": "Scrape a whole website in a real browser, review it through 1,860 lenses, and export what you choose. Runs on your own computer.",
+  "main": "lib/crawler.js",
+  "bin": {
+    "deepscrape": "scrape.js"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "scrape": "node scrape.js",
+    "test": "node test/run-test.js && node test/login-test.js && node test/dashboard-test.js && node test/batch-test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "SEE LICENSE IN LICENSE.md",
+  "dependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
+    "archiver": "^7.0.1",
+    "docx": "^9.16.0",
+    "jszip": "^3.10.2",
+    "mammoth": "^1.13.0",
+    "pdfjs-dist": "^4.10.38",
+    "playwright": "^1.48.0",
+    "tesseract.js": "^7.0.0",
+    "turndown": "^7.2.0",
+    "turndown-plugin-gfm": "^1.0.2"
+  },
+  "author": "Mogamat Muneer Miller",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MuneerMiller/deepscrape.git"
+  },
+  "homepage": "https://github.com/MuneerMiller/deepscrape"
+}

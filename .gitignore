@@ -1,0 +1,17 @@
+# Installed packages
+node_modules/
+
+# Everything the app saves: scrapes, saved sign-ins, AI keys, schedules. Never commit this folder.
+data/
+scraped/
+
+# Exports and archives
+*.zip
+/sample-*
+
+# Editor and system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.log

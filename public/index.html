@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DeepScrape</title>
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --bg:#EEF2F5; --surface:#fff; --sunk:#E4EAEF; --ink:#14263B; --muted:#5B6B7D; --line:#D3DCE4;
+  --accent:#0B7A75; --accent-ink:#fff; --warn:#B86E00; --warn-bg:#FFF3DC; --bad:#B3362F; --good:#2E7D4F; --info:#2C5FA8;
+  --display:Bahnschrift,"DIN Alternate","Segoe UI Variable Display","Segoe UI",system-ui,sans-serif;
+  --body:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif;
+  --code:Consolas,"Cascadia Mono",Menlo,monospace;
+}
+[data-theme=dark]{ --bg:#0F1A26; --surface:#172534; --sunk:#111E2B; --ink:#E6EDF3; --muted:#93A4B5; --line:#2A3B4D; --accent:#3CC2B8; --accent-ink:#06211F; --warn:#F0B14A; --warn-bg:#3A2C10; --bad:#F0796F; --good:#6CCB8F; --info:#7FB0F0; }
+*{box-sizing:border-box}
+body{min-height:100vh}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 var(--body);display:grid;grid-template-columns:264px 1fr;}
+h1,h2,h3{font-family:var(--display);font-weight:600;margin:0;letter-spacing:.01em}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-family:var(--display);font-variant-numeric:tabular-nums}
+
+/* rail */
+#rail{background:var(--surface);border-right:1px solid var(--line);display:flex;flex-direction:column;height:100vh;position:sticky;top:0;align-self:start}
+#brand{padding:18px 18px 14px;display:flex;align-items:center;gap:10px}
+#brand svg{flex:none}
+#brand h1{font-size:21px}
+#rail .sec{padding:6px 18px;color:var(--muted);font-size:12px;display:flex;justify-content:space-between;align-items:center}
+#jobs{overflow:auto;flex:1;padding:0 8px}
+.job{display:block;width:100%;text-align:left;background:none;border:0;border-radius:8px;padding:8px 10px;cursor:pointer}
+.job:hover{background:var(--sunk)} .job.on{background:var(--sunk);box-shadow:inset 3px 0 0 var(--accent)}
+.job b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.job small{color:var(--muted);display:flex;gap:6px;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.dot.running,.dot.starting,.dot.finishing{background:var(--accent);animation:pulse 1.2s infinite}
+.dot.done{background:var(--good)} .dot.failed{background:var(--bad)} .dot.waiting-for-you{background:var(--warn);animation:pulse .8s infinite} .dot.paused,.dot.partial,.dot.stopped,.dot.interrupted{background:var(--warn)}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.dot{animation:none!important}}
+#railfoot{border-top:1px solid var(--line);padding:10px 18px;display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:12px}
+
+/* main */
+#main{min-width:0;padding:22px 28px 60px}
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 13px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--muted)} .btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.sm{padding:3px 9px;font-size:12.5px} .btn.danger{color:var(--bad)} .btn:disabled{opacity:.5;cursor:default}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+
+/* start */
+#start{padding:18px 20px}
+#start.compact h2,#start.compact>p{display:none}
+#start.drag{outline:3px dashed var(--accent);outline-offset:3px}
+#start h2{font-size:26px;margin-bottom:4px} #start p{margin:0 0 14px;color:var(--muted);max-width:70ch}
+#urlrow{display:flex;gap:10px}
+#url{flex:1;resize:none;border:1.5px solid var(--line);border-radius:10px;background:var(--bg);padding:11px 14px;font-size:16px;font-family:var(--code);min-height:46px;max-height:140px}
+#url:focus{border-color:var(--accent);outline:0}
+#go{font-size:16px;padding:0 22px}
+.modes{display:flex;gap:6px;margin-top:12px;flex-wrap:wrap;align-items:center}
+.modes label{border:1px solid var(--line);border-radius:999px;padding:5px 13px;cursor:pointer}
+.modes input{position:absolute;opacity:0} .modes input:checked+span{color:var(--accent);font-weight:600} .modes label:has(input:checked){border-color:var(--accent);background:color-mix(in srgb,var(--accent) 9%,transparent)}
+.modes label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+details.opts{margin-top:12px} details.opts summary{cursor:pointer;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px 18px;margin-top:12px}
+.f label{display:block;font-size:12.5px;color:var(--muted);margin-bottom:3px}
+.f input[type=text],.f input[type=number]{width:100%;border:1px solid var(--line);border-radius:7px;background:var(--bg);padding:6px 9px}
+.chk{display:flex;gap:8px;align-items:flex-start} .chk small{display:block;color:var(--muted)}
+#starterr{color:var(--bad);margin-top:8px;min-height:1em;white-space:pre-line}
+#multi{display:flex;gap:12px;align-items:center;margin-top:8px;color:var(--muted);font-size:13px;flex-wrap:wrap}
+.job.batchhead b{font-family:var(--display)} .job.inbatch{padding-left:24px}
+#brow td:first-child{font-weight:600}
+
+/* job */
+#jobhead{display:flex;align-items:flex-start;gap:14px;margin:26px 0 12px;flex-wrap:wrap}
+#jobhead h2{font-size:24px;word-break:break-all} #jobhead .sub{color:var(--muted)}
+#jobhead .acts{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:2px 10px;font-size:12.5px;background:var(--sunk)}
+#human{background:var(--warn-bg);border:1px solid var(--warn);border-radius:12px;padding:14px 16px;margin-bottom:14px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+#human b{font-family:var(--display);font-size:17px;display:block} #human div{flex:1;min-width:260px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:8px 12px;cursor:pointer;color:var(--muted);white-space:nowrap}
+.tabs button.on{color:var(--ink);border-color:var(--accent);font-weight:600}
+.tabs .n{font-size:11.5px;background:var(--sunk);border-radius:999px;padding:0 6px;margin-left:4px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:10px;margin-bottom:16px}
+.tile{padding:10px 14px} .tile .num{font-size:27px;line-height:1.1;display:block} .tile small{color:var(--muted)}
+.tile.alert .num{color:var(--bad)}
+.cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px}
+.panel{padding:14px 16px;min-width:0} .panel h3{font-size:16px;margin-bottom:10px}
+#mosaic{display:flex;flex-wrap:wrap;gap:2px}
+#mosaic i{width:11px;height:11px;border-radius:2px;background:var(--good);cursor:pointer;display:block}
+#mosaic i.s3{background:var(--info)} #mosaic i.s4{background:var(--warn)} #mosaic i.s5,#mosaic i.err{background:var(--bad)} #mosaic i.q{background:var(--line);cursor:default} #mosaic i.act{background:var(--accent);animation:pulse 1s infinite}
+#mosaic i:hover{outline:2px solid var(--ink)}
+.legend{display:flex;gap:12px;color:var(--muted);font-size:12px;margin-top:8px;flex-wrap:wrap} .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px}
+.bar{display:grid;grid-template-columns:110px 1fr 48px;gap:8px;align-items:center;margin:4px 0;font-size:13px}
+.bar div{height:9px;background:var(--sunk);border-radius:5px;overflow:hidden} .bar div b{display:block;height:100%;background:var(--accent)}
+.log{font:12px/1.5 var(--code);background:var(--sunk);border-radius:8px;padding:10px 12px;max-height:300px;overflow:auto;white-space:pre-wrap;word-break:break-all}
+.log.tall{max-height:70vh}
+.chips{display:flex;flex-wrap:wrap;gap:6px} .chip{background:var(--sunk);border-radius:6px;padding:2px 9px;font-size:13px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{text-align:left;font-weight:600;color:var(--muted);padding:7px 10px;border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none;position:sticky;top:0;background:var(--surface)}
+td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:top;max-width:420px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+td.wrap{white-space:normal;word-break:break-word}
+tr.click{cursor:pointer} tr.click:hover td{background:var(--sunk)}
+.st{font-family:var(--display);font-weight:600} .st.s2{color:var(--good)} .st.s3{color:var(--info)} .st.s4{color:var(--warn)} .st.s5,.st.err{color:var(--bad)}
+.tools{display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.tools input[type=search],.tools select{border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:7px 11px;min-width:260px}
+.tools select{min-width:0} .tools .count{color:var(--muted);margin-left:auto}
+.scroll{overflow:auto;max-height:72vh}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.gallery a{display:block;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--surface);text-decoration:none;color:inherit}
+.gallery img{width:100%;height:110px;object-fit:contain;background:repeating-conic-gradient(var(--sunk) 0 25%,transparent 0 50%) 0 0/16px 16px;display:block}
+.gallery span{display:block;padding:4px 7px;font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tree details{margin-left:16px} .tree summary{cursor:pointer;padding:1px 0} .tree .leaf{margin-left:32px;padding:1px 0;cursor:pointer} .tree .leaf:hover{color:var(--accent)}
+.issue{border-bottom:1px solid var(--line);padding:8px 0} .issue summary{cursor:pointer;display:flex;gap:10px;align-items:center} .issue summary b{min-width:36px;text-align:right;font-family:var(--display);font-size:17px}
+.issue.zero{opacity:.55} .issue ul{margin:6px 0 4px 46px;padding:0;list-style:none;font-size:13px;max-height:260px;overflow:auto} .issue li{padding:2px 0;word-break:break-all}
+.sev{display:inline-block;min-width:62px;text-align:center;border-radius:5px;padding:1px 7px;font-size:12px;font-weight:600;color:#fff}
+.sev.high{background:var(--bad)} .sev.medium{background:var(--warn)} .sev.low{background:var(--info)} .sev.info{background:var(--muted)}
+.finding{border-bottom:1px solid var(--line);padding:9px 0} .finding summary{cursor:pointer;display:flex;gap:10px;align-items:baseline} .finding summary span.c{margin-left:auto;color:var(--muted);white-space:nowrap}
+.finding div{margin:6px 0 2px 72px;font-size:13px;word-break:break-word} .finding .fix{color:var(--good)}
+.sw{display:flex;flex-wrap:wrap;gap:8px} .sw div{width:86px;font-size:11.5px;font-family:var(--code)} .sw i{display:block;height:44px;border-radius:6px;border:1px solid var(--line)} .sw small{color:var(--muted);display:block}
+.famgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:6px 16px;margin-top:10px}
+.fam{display:flex;gap:8px;align-items:flex-start} .fam small{color:var(--muted)}
+.famcard{text-align:left;cursor:pointer;padding:10px 12px;font:inherit;color:inherit} .famcard.on{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)} .famcard.out{opacity:.55} .famcard b{display:block} .famcard small{color:var(--muted)}
+.fmt{display:flex;gap:8px;flex-wrap:wrap}
+.waiting{border:1px solid var(--warn);border-radius:12px;padding:12px 16px;margin-bottom:14px} .waiting h3{font-size:16px;margin-bottom:6px} .waiting .row{display:flex;gap:12px;align-items:center;padding:5px 0;border-top:1px solid var(--line);flex-wrap:wrap} .waiting .row span{flex:1;min-width:220px}
+.aiv{background:color-mix(in srgb,var(--accent) 8%,transparent);border-left:3px solid var(--accent);border-radius:0 6px 6px 0;padding:6px 10px;margin:6px 0 6px 72px;font-size:13.5px}
+.rate{display:inline-block;border-radius:4px;padding:0 6px;font-size:11.5px;font-weight:600;color:#fff;background:var(--muted)} .rate.strong,.rate.fine{background:var(--good)} .rate.mixed{background:var(--warn)} .rate.weak{background:var(--bad)}
+.answer{white-space:pre-wrap;word-break:break-word;line-height:1.55}
+.delta.up{color:var(--bad)} .delta.down{color:var(--good)}
+.steps{counter-reset:step} .step{padding:14px 16px;margin-bottom:12px} .step>h3{font-size:16px;margin-bottom:8px} .step>h3::before{counter-increment:step;content:counter(step);display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:13px;margin-right:8px}
+.pickgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:4px 16px} .pick{display:flex;gap:8px;align-items:flex-start;padding:3px 0} .pick small{display:block;color:var(--muted);font-size:12px} .pick .n{color:var(--accent);font-family:var(--display)}
+.grp{margin:10px 0 2px;font-family:var(--display);font-weight:600;display:flex;gap:10px;align-items:baseline} .grp button{border:0;background:none;color:var(--accent);cursor:pointer;font-size:12.5px;padding:0}
+.fmtpick{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px} .fmtpick label{border:1px solid var(--line);border-radius:8px;padding:8px 11px;cursor:pointer;display:block} .fmtpick label:has(input:checked){border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)} .fmtpick label:has(input:disabled){opacity:.45;cursor:default} .fmtpick input{position:absolute;opacity:0} .fmtpick b{display:block} .fmtpick small{color:var(--muted)} .fmtpick label:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.summarybar{position:sticky;bottom:0;background:var(--surface);border:1px solid var(--accent);border-radius:12px;padding:12px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;box-shadow:0 -6px 20px rgba(10,25,45,.08)} .summarybar div{flex:1;min-width:240px}
+.subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px} .subtabs button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:5px 14px;cursor:pointer} .subtabs button.on{border-color:var(--accent);color:var(--accent);font-weight:600}
+mark{background:#FFE08A;color:#14263B;border-radius:2px;padding:0 1px}
+.empty{color:var(--muted);padding:26px 4px;max-width:60ch}
+.exp{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.exp a{padding:12px 14px;text-decoration:none;color:inherit;display:block} .exp a:hover{border-color:var(--accent)} .exp b{display:block;font-family:var(--display);font-size:16px} .exp small{color:var(--muted)}
+
+/* drawer */
+#drawer{position:fixed;inset:0 0 0 auto;width:min(920px,94vw);background:var(--surface);border-left:1px solid var(--line);box-shadow:-18px 0 40px rgba(10,25,45,.18);transform:translateX(105%);transition:transform .18s ease;display:flex;flex-direction:column;z-index:20}
+#drawer.open{transform:none}
+@media (prefers-reduced-motion:reduce){#drawer{transition:none}}
+#dhead{padding:14px 18px 0;display:flex;gap:12px;align-items:flex-start} #dhead h3{font-size:18px;word-break:break-word} #dhead a{font-size:12.5px;word-break:break-all}
+#dbody{overflow:auto;padding:14px 18px 40px;flex:1}
+#dbody pre{font:12.5px/1.5 var(--code);background:var(--sunk);border-radius:8px;padding:12px;white-space:pre-wrap;word-break:break-word;margin:0}
+#dbody img.shot{max-width:100%;border:1px solid var(--line);border-radius:8px}
+#dbody iframe{width:100%;height:75vh;border:1px solid var(--line);border-radius:8px;background:#fff}
+dl.kv{display:grid;grid-template-columns:170px 1fr;gap:4px 14px;margin:0 0 16px} dl.kv dt{color:var(--muted)} dl.kv dd{margin:0;word-break:break-word}
+#dbody h4{font-family:var(--display);font-size:15px;margin:18px 0 8px}
+#scrim{position:fixed;inset:0;background:rgba(10,25,45,.25);opacity:0;pointer-events:none;transition:opacity .18s;z-index:19} #scrim.open{opacity:1;pointer-events:auto}
+@media (max-width:860px){body{grid-template-columns:1fr}#rail{position:static;height:auto;max-height:230px}#main{padding:16px}}
+</style>
+</head>
+<body>
+<aside id="rail">
+  <div id="brand">
+    <svg width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><rect width="30" height="30" rx="7" fill="var(--accent)"/><g fill="var(--accent-ink)"><rect x="6" y="6" width="5" height="5" rx="1"/><rect x="12.5" y="6" width="5" height="5" rx="1" opacity=".75"/><rect x="19" y="6" width="5" height="5" rx="1" opacity=".5"/><rect x="6" y="12.5" width="5" height="5" rx="1" opacity=".75"/><rect x="12.5" y="12.5" width="5" height="5" rx="1" opacity=".5"/><rect x="6" y="19" width="5" height="5" rx="1" opacity=".5"/></g></svg>
+    <h1>DeepScrape</h1>
+  </div>
+  <div class="sec"><span>Scrapes</span><button class="btn sm" id="newbtn">New</button></div>
+  <div id="jobs"></div>
+  <div class="sec" style="border-top:1px solid var(--line);padding-top:10px"><span>Repeating scrapes</span></div>
+  <div id="schedules" style="padding:0 18px 8px;font-size:13px;max-height:110px;overflow:auto"></div>
+  <div class="sec" style="border-top:1px solid var(--line);padding-top:10px"><span>Your AI</span><button class="btn sm" id="aibtn">Set up</button></div>
+  <div id="ailist" style="padding:0 18px 8px;font-size:13px;color:var(--muted)"></div>
+  <div class="sec" style="border-top:1px solid var(--line);padding-top:10px"><span>Saved sign-ins</span></div>
+  <div id="sessions" style="padding:0 18px 8px;font-size:13px;max-height:120px;overflow:auto"></div>
+  <div id="railfoot"><span>Runs only on this computer</span><button class="btn sm" id="theme" aria-label="Switch light or dark theme">Dark</button></div>
+</aside>
+
+<main id="main">
+  <section id="start" class="card">
+    <h2>Scrape a website</h2>
+    <p>Paste or drop a link. Every page is opened in a real browser, so you get what a visitor sees, plus the data, files and images behind it. If a site asks you to sign in, a browser window opens for you and the scrape carries on afterwards.</p>
+    <div id="urlrow">
+      <textarea id="url" rows="1" placeholder="https://example.com" aria-label="Website address. One per line for several sites." spellcheck="false"></textarea>
+      <button class="btn pri" id="go">Scrape</button>
+    </div>
+    <div id="multi"><span id="ucount">Several websites? One address per line (Shift+Enter for a new line), or</span><button class="btn sm" id="importbtn" type="button">Import a list</button><input type="file" id="importfile" accept=".txt,.csv,.tsv,.json,.md,.html,text/*" hidden></div>
+    <div class="modes" role="radiogroup" aria-label="How much to scrape">
+      <label><input type="radio" name="mode" value="site" checked><span>Whole site</span></label>
+      <label><input type="radio" name="mode" value="section"><span>This section and below</span></label>
+      <label><input type="radio" name="mode" value="page"><span>This page only</span></label>
+    </div>
+    <div class="modes" role="radiogroup" aria-label="What to examine" style="margin-top:8px">
+      <label><input type="radio" name="scope" value="all" checked><span>Examine everything <span id="lenstotal"></span></span></label>
+      <label><input type="radio" name="scope" value="pick"><span>Choose lens families</span></label>
+      <span id="scopehint" style="color:var(--muted);font-size:13px"></span>
+    </div>
+    <div id="fampick" hidden><div class="famgrid" id="famboxes"></div>
+      <p style="color:var(--muted);font-size:13px;margin:8px 0 0">Choosing families makes the scrape lighter: screenshots, asset downloads, document reading and click-through are skipped when no chosen family needs them. You can still build a report on any family afterwards, with whatever was collected.</p></div>
+    <details class="opts"><summary>Options</summary>
+      <div class="grid">
+        <div class="f"><label for="o-maxPages">Page limit (0 = no limit)</label><input type="number" id="o-maxPages" value="0" min="0"></div>
+        <div class="f"><label for="o-maxDepth">Link depth limit (blank = none)</label><input type="number" id="o-maxDepth" min="0"></div>
+        <div class="f"><label for="o-concurrency">Pages at once</label><input type="number" id="o-concurrency" value="3" min="1" max="10"></div>
+        <div class="f"><label for="o-delay">Pause between pages (ms)</label><input type="number" id="o-delay" value="300" min="0"></div>
+        <div class="f"><label for="o-include">Only addresses matching (regex)</label><input type="text" id="o-include" placeholder="/blog/|/news/"></div>
+        <div class="f"><label for="o-exclude">Skip addresses matching (regex)</label><input type="text" id="o-exclude" placeholder="/tag/|\?sort="></div>
+        <div class="f"><label for="o-click">Keep clicking this button (CSS selector)</label><input type="text" id="o-click" placeholder='button.load-more'></div>
+        <div class="f"><label for="o-searchTerms">Also search the site for these words (comma separated)</label><input type="text" id="o-searchTerms" placeholder="fees, admissions, uniform"></div>
+        <div class="f"><label for="o-waitFor">Wait for this element (CSS selector)</label><input type="text" id="o-waitFor" placeholder=".product-card"></div>
+        <div class="f"><label for="o-wait">Extra wait per page (ms)</label><input type="number" id="o-wait" value="0" min="0"></div>
+        <div class="f"><label for="o-sitesAtOnce">Websites scraped side by side (1 to 8)</label><input type="number" id="o-sitesAtOnce" value="2" min="1" max="8"></div>
+        <div class="f"><label for="o-maxFileMb">Largest file to save (MB)</label><input type="number" id="o-maxFileMb" value="100" min="1"></div>
+      </div>
+      <div class="grid">
+        <label class="chk"><input type="checkbox" id="o-loginFirst"><span>Sign in before starting<small>Opens the sign-in window straight away</small></span></label>
+        <label class="chk"><input type="checkbox" id="o-useSavedSession" checked><span>Reuse my saved sign-in<small>Skip the sign-in if this site was done before</small></span></label>
+        <label class="chk"><input type="checkbox" id="o-interact" checked><span>Click to reveal hidden content<small>Tabs, accordions, "show more", "next". Never forms or buttons that change things</small></span></label>
+        <label class="chk"><input type="checkbox" id="o-docText" checked><span>Read inside documents<small>Text of PDFs, Word, Excel, PowerPoint</small></span></label>
+        <label class="chk"><input type="checkbox" id="o-ocr"><span>Read text inside images<small>Banners, posters, scanned notices. Slow</small></span></label>
+        <label class="chk"><input type="checkbox" id="o-discoverFromData" checked><span>Follow addresses in hidden data<small>Finds pages that are only mentioned in background data</small></span></label>
+        <label class="chk"><input type="checkbox" id="o-mobileScreenshots" checked><span>Phone-size screenshots too</span></label>
+        <label class="chk"><input type="checkbox" id="o-subdomains"><span>Include subdomains<small>blog.site.com, shop.site.com</small></span></label>
+        <label class="chk"><input type="checkbox" id="o-assets" checked><span>Save images, styles and scripts</span></label>
+        <label class="chk"><input type="checkbox" id="o-files" checked><span>Download documents<small>PDF, Word, Excel, ZIP, media</small></span></label>
+        <label class="chk"><input type="checkbox" id="o-screenshots" checked><span>Full-page screenshots</span></label>
+        <label class="chk"><input type="checkbox" id="o-mhtml"><span>Single-file web archive per page<small>.mhtml, opens offline in Chrome or Edge</small></span></label>
+        <label class="chk"><input type="checkbox" id="o-sitemap" checked><span>Use the site's sitemap<small>Finds pages nothing links to</small></span></label>
+        <label class="chk"><input type="checkbox" id="o-robots" checked><span>Respect robots.txt<small>Untick only for sites you own or may scrape</small></span></label>
+        <label class="chk"><input type="checkbox" id="o-insecure"><span>Ignore certificate errors<small>For internal sites with self-signed HTTPS</small></span></label>
+      </div>
+    </details>
+    <div id="starterr" role="alert"></div>
+  </section>
+  <section id="aiview" class="card" style="padding:18px 20px;margin-top:18px" hidden></section>
+  <section id="jobview" hidden></section>
+</main>
+
+<div id="scrim"></div>
+<aside id="drawer" aria-label="Page details"><div id="dhead"></div><div class="tabs" id="dtabs" style="margin:10px 18px 0"></div><div id="dbody"></div></aside>
+
+<script>
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const api = async (p, opt = {}) => { const r = await fetch(p, { ...opt, headers: opt.body ? { 'content-type': 'application/json' } : undefined }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Request failed'); return j; };
+const bytes = (n) => (n == null ? '' : n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(0) + ' KB' : n < 1073741824 ? (n / 1048576).toFixed(1) + ' MB' : (n / 1073741824).toFixed(2) + ' GB');
+const dur = (ms) => { const s = Math.round((ms || 0) / 1000); return s < 60 ? s + 's' : s < 3600 ? Math.floor(s / 60) + 'm ' + (s % 60) + 's' : Math.floor(s / 3600) + 'h ' + Math.floor((s % 3600) / 60) + 'm'; };
+const stClass = (p) => (p.error ? 'err' : 's' + String(p.status || 2)[0]);
+const LIVE = ['queued', 'starting', 'running', 'paused', 'waiting-for-you', 'finishing'];
+const STATUS = { queued: 'Waiting to start', starting: 'Starting', running: 'Scraping', paused: 'Paused', 'waiting-for-you': 'Waiting for you', finishing: 'Writing results', done: 'Complete', partial: 'Stopped at page limit', stopped: 'Stopped', failed: 'Failed', interrupted: 'Interrupted' };
+const fileUrl = (rel, extra = '') => `/files/${S.id}/${rel.split('/').map(encodeURIComponent).join('/')}${extra}`;
+const S = { jobs: [], id: null, job: null, pages: [], tab: 'overview', es: null, log: [], sort: { key: 'id', dir: 1 }, pageFilter: '', pageStatus: '', cache: {} };
+
+/* ── theme ── */
+const setTheme = (t) => { document.documentElement.dataset.theme = t; $('#theme').textContent = t === 'dark' ? 'Light' : 'Dark'; try { localStorage.setItem('ds-theme', t); } catch {} };
+let savedTheme = null; try { savedTheme = localStorage.getItem('ds-theme'); } catch {}
+setTheme(savedTheme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+$('#theme').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+
+/* ── start form ── */
+const urlBox = $('#url');
+const grow = () => { urlBox.style.height = 'auto'; urlBox.style.height = Math.min(140, urlBox.scrollHeight + 2) + 'px'; };
+const urlList = () => [...new Set(urlBox.value.split(/[\s,;]+/).map((x) => x.trim()).filter((x) => /^(https?:\/\/)?[\w-]+(\.[\w-]+)+/i.test(x) || /^https?:\/\/localhost/i.test(x)))];
+const countUrls = () => { const n = urlList().length; $('#ucount').textContent = n > 1 ? `${n} websites will be scraped as one batch. Add more, or` : 'Several websites? One address per line (Shift+Enter for a new line), or'; $('#go').textContent = n > 1 ? `Scrape ${n} websites` : 'Scrape'; };
+urlBox.addEventListener('input', () => { grow(); countUrls(); });
+$('#importbtn').onclick = () => $('#importfile').click();
+$('#importfile').onchange = async (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const text = await f.text(); e.target.value = '';
+  // Take every web address in the file, whatever its layout (one per line, a CSV column, a bookmarks export).
+  const found = [...new Set((text.match(/https?:\/\/[^\s"'<>,;)]+/gi) || []).concat(text.split(/[\r\n,;\t]+/).map((x) => x.trim().replace(/^"|"$/g, '')).filter((x) => /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(x))))];
+  if (!found.length) { $('#starterr').textContent = `No website addresses were found in ${f.name}.`; return; }
+  urlBox.value = (urlBox.value.trim() ? urlBox.value.trim() + '\n' : '') + found.join('\n'); grow(); countUrls(); $('#starterr').textContent = '';
+};
+api('/api/settings').then((s) => { $('#o-sitesAtOnce').value = s.sitesAtOnce; }).catch(() => {});
+let LENS = { families: [], total: 0, formats: [], detail: {} };
+api('/api/lenses').then((l) => { LENS = l; $('#lenstotal').textContent = `(${l.total.toLocaleString()} lenses, ${l.families.length} families)`;
+  $('#famboxes').innerHTML = l.families.map((f) => `<label class="fam"><input type="checkbox" value="${f.id}"><span>${f.id}. ${esc(f.name)} <small>${f.lenses}</small></span></label>`).join(''); }).catch(() => {});
+const pickedFamilies = () => ($('input[name=scope]:checked').value === 'pick' ? [...document.querySelectorAll('#famboxes input:checked')].map((x) => +x.value) : []);
+const scopeHint = () => { const pick = $('input[name=scope]:checked').value === 'pick'; $('#fampick').hidden = !pick; const n = pickedFamilies(); $('#scopehint').textContent = pick ? (n.length ? `${n.length} of ${LENS.families.length} families, ${LENS.families.filter((f) => n.includes(f.id)).reduce((s, f) => s + f.lenses, 0)} lenses` : 'Tick at least one family') : ''; };
+document.querySelectorAll('input[name=scope]').forEach((r) => (r.onchange = scopeHint)); $('#famboxes').onchange = scopeHint;
+$('#o-sitesAtOnce').onchange = (e) => api('/api/settings', { method: 'POST', body: JSON.stringify({ sitesAtOnce: Number(e.target.value) }) }).then((s) => { e.target.value = s.sitesAtOnce; }).catch(() => {});
+urlBox.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); startScrape(); } });
+const startCard = $('#start');
+addEventListener('dragover', (e) => { e.preventDefault(); startCard.classList.add('drag'); });
+addEventListener('dragleave', (e) => { if (!e.relatedTarget) startCard.classList.remove('drag'); });
+addEventListener('drop', (e) => {
+  e.preventDefault(); startCard.classList.remove('drag');
+  const t = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+  if (t) { urlBox.value = t.split(/\r?\n/).filter((l) => l && !l.startsWith('#')).join('\n'); grow(); showStart(); urlBox.focus(); }
+});
+addEventListener('paste', (e) => { if (!/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) { const t = e.clipboardData.getData('text'); if (/^(https?:\/\/|www\.)\S+/i.test(t.trim())) { urlBox.value = t.trim(); grow(); showStart(); urlBox.focus(); } } });
+function showStart() { startCard.classList.remove('compact'); scrollTo({ top: 0 }); }
+$('#newbtn').onclick = () => { showStart(); urlBox.focus(); };
+$('#go').onclick = startScrape;
+async function startScrape() {
+  const urls = urlList();
+  $('#starterr').textContent = '';
+  if (!urls.length) { $('#starterr').textContent = 'Paste a website address first.'; urlBox.focus(); return; }
+  const v = (id) => $('#o-' + id).value.trim(); const c = (id) => $('#o-' + id).checked;
+  const mode = $('input[name=mode]:checked').value;
+  const o = { maxPages: Number(v('maxPages') || 0), concurrency: Number(v('concurrency')) || 3, delay: Number(v('delay') || 0), wait: Number(v('wait') || 0), maxFileMb: Number(v('maxFileMb')) || 100,
+    include: v('include'), exclude: v('exclude'), click: v('click'), waitFor: v('waitFor'), searchTerms: v('searchTerms'),
+    loginFirst: c('loginFirst'), useSavedSession: c('useSavedSession'), interact: c('interact'), docText: c('docText'), ocr: c('ocr'), discoverFromData: c('discoverFromData'), mobileScreenshots: c('mobileScreenshots'), subdomains: c('subdomains'), assets: c('assets'), files: c('files'), screenshots: c('screenshots'), mhtml: c('mhtml'), sitemap: c('sitemap'), robots: c('robots'), insecure: c('insecure') };
+  if (v('maxDepth') !== '') o.maxDepth = Number(v('maxDepth'));
+  if ($('input[name=scope]:checked').value === 'pick') { const fam = pickedFamilies(); if (!fam.length) { $('#starterr').textContent = 'Tick at least one lens family, or choose "Examine everything".'; return; } o.lensFamilies = fam; }
+  $('#go').disabled = true;
+  try {
+    if (mode === 'page') { o.maxPages = 1; o.sitemap = false; }
+    if (mode === 'section') o.sitemap = false;
+    const r = await api('/api/jobs', { method: 'POST', body: JSON.stringify({ urls, options: o, mode }) });
+    urlBox.value = r.rejected.map((x) => x.url).join('\n'); grow(); countUrls();
+    if (r.rejected.length) $('#starterr').textContent = `${r.rejected.length} could not be started and ${r.rejected.length > 1 ? 'were' : 'was'} left in the box:\n` + r.rejected.map((x) => `${x.url}: ${x.error}`).join('\n');
+    await refreshJobs();
+    if (r.jobs[0]) (r.jobs[0].batch ? selectBatch(r.jobs[0].batch.id) : selectJob(r.jobs[0].id));
+  } catch (e) { $('#starterr').textContent = e.message; }
+  $('#go').disabled = false;
+}
+
+/* ── rail ── */
+async function refreshJobs() {
+  S.jobs = await api('/api/jobs');
+  const jobBtn = (j, cls = '') => `<button class="job ${cls} ${j.id === S.id ? 'on' : ''}" data-id="${esc(j.id)}"><b>${esc(j.host)}</b><small><i class="dot ${esc(j.status)}"></i>${esc(STATUS[j.status] || j.status)} · <span class="num">${(j.stats && j.stats.pages) || 0}</span> pages</small>${j.changes && j.changes.anything ? `<small style="color:var(--accent)">Since last time: ${esc(j.changes.headline)}</small>` : ''}${((j.stats && j.stats.signIns) || []).some((x) => x.pagesWaiting) ? '<small style="color:var(--warn)">Waiting on a sign-in</small>' : ''}</button>`;
+  const out = []; const done = new Set();
+  for (const j of S.jobs) {
+    if (!j.batch) { out.push(jobBtn(j)); continue; }
+    if (done.has(j.batch.id)) continue; done.add(j.batch.id);
+    const mem = S.jobs.filter((x) => x.batch && x.batch.id === j.batch.id).reverse(); const b = batchState(mem);
+    const open = S.batch === j.batch.id || mem.some((x) => x.id === S.id);
+    out.push(`<button class="job batchhead ${S.batch === j.batch.id ? 'on' : ''}" data-batch="${esc(j.batch.id)}"><b>${esc(j.batch.name)}</b><small><i class="dot ${b.dot}"></i>${b.finished} of ${mem.length} finished · <span class="num">${b.pages}</span> pages</small></button>` + (open ? mem.map((x) => jobBtn(x, 'inbatch')).join('') : ''));
+  }
+  $('#jobs').innerHTML = out.length ? out.join('') : '<div class="sec">Nothing scraped yet.</div>';
+  const sch = await api('/api/schedules');
+  $('#schedules').innerHTML = sch.length ? sch.map((s) => `<div style="padding:2px 0"><div style="display:flex;justify-content:space-between;gap:6px"><span style="overflow:hidden;text-overflow:ellipsis">${esc(s.host)}</span><button class="btn sm danger" data-unsched="${esc(s.id)}" aria-label="Stop repeating ${esc(s.host)}">Stop</button></div><small style="color:var(--muted)">Every ${s.every === 'hours' ? s.hours + ' hours' : s.every}${s.every === 'hours' ? '' : ' at ' + esc(s.at)}, next ${new Date(s.next).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</small></div>`).join('') : '<span style="color:var(--muted)">None. Open a scrape and choose "Repeat this scrape".</span>';
+  AI = await api('/api/ai');
+  $('#ailist').innerHTML = AI.connections.length ? AI.connections.map((c) => `<div>${c.active ? '● ' : ''}${esc(c.name)}</div>`).join('') : 'None yet. Add your own AI with your own key to get written verdicts and ask questions about a scraped site.';
+  const ses = await api('/api/sessions');
+  $('#sessions').innerHTML = ses.length ? ses.map((s) => `<div style="display:flex;justify-content:space-between;gap:6px;padding:2px 0"><span style="overflow:hidden;text-overflow:ellipsis">${esc(s.host)}</span><button class="btn sm danger" data-forget="${esc(s.host)}" aria-label="Forget sign-in for ${esc(s.host)}">Forget</button></div>`).join('') : '<span style="color:var(--muted)">None. Sign-ins you complete are remembered here so you only do them once.</span>';
+}
+$('#jobs').onclick = (e) => { const b = e.target.closest('.job'); if (b) (b.dataset.batch ? selectBatch(b.dataset.batch) : selectJob(b.dataset.id)); };
+function batchState(mem) {
+  const live = mem.filter((j) => LIVE.includes(j.status)); const waiting = mem.some((j) => j.status === 'waiting-for-you');
+  return { live: live.length, finished: mem.length - live.length, pages: mem.reduce((n, j) => n + ((j.stats && j.stats.pages) || 0), 0), waiting,
+    dot: waiting ? 'waiting-for-you' : live.some((j) => j.status !== 'queued' && j.status !== 'paused') ? 'running' : live.length ? 'paused' : mem.some((j) => j.status === 'failed') ? 'failed' : mem.every((j) => j.status === 'done') ? 'done' : 'partial' };
+}
+
+/* ── batch view: several websites together ── */
+async function selectBatch(id) {
+  if (S.es) { S.es.close(); S.es = null; }
+  clearInterval(S.batchTimer); S.id = null; S.job = null; S.batch = id; closeDrawer(); startCard.classList.add('compact');
+  const draw = async () => {
+    if (S.batch !== id) return clearInterval(S.batchTimer);
+    let b; try { b = await api('/api/batches/' + id); } catch { clearInterval(S.batchTimer); return; }
+    renderBatch(b); if (!b.jobs.some((j) => LIVE.includes(j.status) || j.live)) clearInterval(S.batchTimer);
+  };
+  await draw(); S.batchTimer = setInterval(draw, 1500); refreshJobs();
+  $('#jobview').scrollIntoView({ block: 'start' });
+}
+function renderBatch(b) {
+  const v = $('#jobview'); v.hidden = false; const st = batchState(b.jobs); const J = b.jobs;
+  const sum = (f) => J.reduce((n, j) => n + (Number(f(j.stats || {})) || 0), 0);
+  const waiting = J.filter((j) => j.status === 'waiting-for-you');
+  const tiles = [['Websites', J.length], ['Finished', st.finished], ['Running now', J.filter((j) => LIVE.includes(j.status) && j.status !== 'queued').length], ['Waiting their turn', J.filter((j) => j.status === 'queued').length], ['Pages scraped', st.pages], ['Images & assets', sum((s) => s.assetsSaved ?? s.assets)], ['Documents', sum((s) => s.filesDownloaded ?? s.files)], ['Hidden data responses', sum((s) => s.apiResponsesCaptured ?? s.apiResponses)], ['Saved', bytes(sum((s) => s.bytesSaved))]];
+  const acts = st.live ? [[J.some((j) => j.status === 'paused') ? 'resume' : 'pause', J.some((j) => j.status === 'paused') ? 'Resume all' : 'Pause all'], ['stop', 'Stop all and keep results']] : [['delete', 'Delete all']];
+  v.innerHTML = `<div id="jobhead"><div><h2>${esc(b.name)}</h2><div class="sub">Started ${new Date(b.createdAt).toLocaleString()}</div>
+      <div style="margin-top:6px"><span class="pill"><i class="dot ${st.dot}"></i>${st.live ? `${st.finished} of ${J.length} finished` : 'All finished'}</span></div></div>
+      <div class="acts"><a class="btn" href="/api/batches/${esc(b.id)}/export?include=pages,metadata,links,contacts,security,checks,accessibility,performance,technology,cookies,otherHosts&format=xlsx">Spreadsheet for each (Excel)</a><a class="btn" href="/api/batches/${esc(b.id)}/report?format=docx&detail=findings">Reports for all (Word)</a><a class="btn" href="/api/batches/${esc(b.id)}/report?format=xlsx&detail=findings">Reports for all (Excel)</a><a class="btn" href="/api/batches/${esc(b.id)}/summary.csv">Summary for Excel</a><a class="btn" href="/api/batches/${esc(b.id)}/zip">Download everything (ZIP)</a>${acts.map(([a, l]) => `<button class="btn ${a === 'delete' ? 'danger' : ''}" data-bact="${a}">${l}</button>`).join('')}</div></div>
+    ${waiting.length ? `<div id="human" role="alert"><div><b>${waiting.length === 1 ? esc(waiting[0].host) + ' needs you' : waiting.length + ' websites need you'}</b>A browser window has opened for ${waiting.map((j) => esc(j.host)).join(', ')}. Sign in or complete the check there; the other websites keep going in the meantime.</div>${waiting.map((j) => `<button class="btn" data-open="${esc(j.id)}">Open ${esc(j.host)}</button>`).join('')}</div>` : ''}
+    <div class="tiles">${tiles.map(([l, n]) => `<div class="card tile"><span class="num">${esc(n)}</span><small>${l}</small></div>`).join('')}</div>
+    <div class="card scroll"><table><thead><tr><th>Website</th><th>Progress</th><th>Pages</th><th>In the queue</th><th>Need a sign-in</th><th>Documents</th><th>Hidden data</th><th>Saved</th><th>Time</th></tr></thead>
+    <tbody id="brow">${J.map((j) => { const s = j.stats || {}; return `<tr class="click" data-open="${esc(j.id)}"><td title="${esc(j.url)}">${esc(j.host)}</td><td><span class="pill"><i class="dot ${esc(j.status)}"></i>${esc(STATUS[j.status] || j.status)}</span>${j.error ? ` <span style="color:var(--bad)">${esc(j.error)}</span>` : ''}</td><td class="num">${s.pages || 0}</td><td class="num">${s.queued ?? s.stillQueued ?? 0}</td><td class="num">${(s.pagesNeedingSignIn ?? s.needSignIn) || ''}</td><td class="num">${(s.filesDownloaded ?? s.files) || ''}</td><td class="num">${(s.apiResponsesCaptured ?? s.apiResponses) || ''}</td><td class="num">${s.bytesSaved ? bytes(s.bytesSaved) : ''}</td><td class="num">${s.elapsedMs ? dur(s.elapsedMs) : j.durationSeconds ? dur(j.durationSeconds * 1000) : ''}</td></tr>`; }).join('')}</tbody></table></div>
+    ${J.some((j) => j.highlights) ? `<h3 style="margin:22px 0 8px">Side by side</h3><div class="card scroll"><table><thead><tr><th>Website</th><th>Pages</th><th>Words</th><th>HTTPS</th><th>Serious security</th><th>Should fix</th><th>Page size</th><th>Largest paint</th><th>Accessibility problems</th><th>Broken links</th><th>Other hosts</th><th>Reading ease</th><th>Trackers</th><th>Built with</th><th>Prices seen</th></tr></thead><tbody>${J.filter((j) => j.highlights).map((j) => { const x = j.highlights; return `<tr class="click" data-open="${esc(j.id)}"><td>${esc(j.host)}</td><td class="num">${x.pages}</td><td class="num">${x.words}</td><td>${x.https ? 'Yes' : 'No'}</td><td class="num" style="${x.serious ? 'color:var(--bad)' : ''}">${x.serious}</td><td class="num">${x.shouldFix}</td><td class="num">${bytes(x.pageBytes)}</td><td class="num">${x.largestPaintMs ?? ''}${x.largestPaintMs != null ? ' ms' : ''}</td><td class="num">${x.accessibilityProblems}</td><td class="num">${x.brokenLinks}</td><td class="num">${x.otherHosts}</td><td class="num">${x.readingEase ?? ''}</td><td class="wrap">${esc(x.trackers.join(', '))}</td><td class="wrap">${esc(x.builtWith.join(', '))}</td><td class="wrap">${esc(x.prices.slice(0, 4).join(', '))}</td></tr>`; }).join('')}</tbody></table></div>` : ''}
+    <p style="color:var(--muted);max-width:80ch">Click a website to open its pages, search, images and exports. Up to ${esc($('#o-sitesAtOnce').value)} websites run side by side; change that under Options.</p>`;
+  v.onclick = async (e) => {
+    const o = e.target.closest('[data-open]'); if (o) { v.onclick = null; S.batch = null; return selectJob(o.dataset.open); }
+    const a = e.target.dataset.bact; if (!a) return;
+    try {
+      if (a === 'delete') { if (!confirm(`Delete all ${J.length} scrapes in this batch and their saved files from this computer?`)) return; await api('/api/batches/' + b.id, { method: 'DELETE' }); S.batch = null; v.hidden = true; showStart(); return refreshJobs(); }
+      await api(`/api/batches/${b.id}/${a}`, { method: 'POST' });
+    } catch (err) { alert(err.message); }
+  };
+}
+$('#sessions').onclick = async (e) => { const h = e.target.dataset.forget; if (h) { await api('/api/sessions/' + encodeURIComponent(h), { method: 'DELETE' }); refreshJobs(); } };
+setInterval(() => refreshJobs().catch(() => {}), 4000);
+let AI = { providers: [], connections: [] };
+$('#schedules').onclick = async (e) => { const id = e.target.dataset.unsched; if (id) { await api('/api/schedules/' + id, { method: 'DELETE' }); refreshJobs(); } };
+$('#aibtn').onclick = () => { const v = $('#aiview'); v.hidden = !v.hidden; if (!v.hidden) { renderAiSettings(v); v.scrollIntoView({ block: 'start' }); } };
+
+/* ── your own AI: connections ── */
+function renderAiSettings(el) {
+  const prov = (id) => AI.providers.find((p) => p.id === id) || AI.providers[0] || {};
+  el.innerHTML = `<h3 style="font-size:20px">Your AI</h3><p style="color:var(--muted);max-width:85ch;margin:4px 0 12px">Connect any AI you have an account with, using your own API key. DeepScrape can then hand it what was scraped: written verdicts for the lenses, and answers to anything you ask about a site. The key is saved only in this app's data folder on this computer. What you send goes to the provider you choose, at your cost; pick Ollama to keep everything on this computer.</p>
+    ${AI.connections.length ? `<div class="scroll" style="max-height:none;margin-bottom:14px"><table><thead><tr><th>Name</th><th>Provider</th><th>Model</th><th>Key</th><th></th></tr></thead><tbody>${AI.connections.map((c) => `<tr><td>${c.active ? '<b>In use</b> · ' : ''}${esc(c.name)}</td><td>${esc(prov(c.provider).name || c.provider)}</td><td>${esc(c.model)}</td><td>${c.hasKey ? 'Saved' : 'None'}</td><td>${c.active ? '' : `<button class="btn sm" data-aiuse="${esc(c.id)}">Use this one</button> `}<button class="btn sm" data-aitest="${esc(c.id)}">Test</button> <button class="btn sm danger" data-aidel="${esc(c.id)}">Remove</button> <span data-aimsg="${esc(c.id)}"></span></td></tr>`).join('')}</tbody></table></div>` : ''}
+    <div class="grid" style="margin-top:0"><div class="f"><label for="ai-provider">Provider</label><select id="ai-provider" style="width:100%;border:1px solid var(--line);border-radius:7px;background:var(--bg);padding:6px 9px">${AI.providers.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select></div>
+      <div class="f"><label for="ai-model">Model name</label><input type="text" id="ai-model"></div>
+      <div class="f"><label for="ai-key">Your API key</label><input type="text" id="ai-key" autocomplete="off" spellcheck="false" style="-webkit-text-security:disc"></div>
+      <div class="f"><label for="ai-base">Service address</label><input type="text" id="ai-base"></div>
+      <div class="f"><label for="ai-name">Name for this connection (optional)</label><input type="text" id="ai-name"></div></div>
+    <div class="tools" style="margin:12px 0 0"><button class="btn pri" id="ai-add">Add this AI</button><span id="ai-err" style="color:var(--bad)"></span></div>`;
+  const sync = () => { const p = prov($('#ai-provider').value); $('#ai-base').value = p.baseUrl || ''; $('#ai-model').placeholder = p.modelHint || ''; $('#ai-model').value = p.id === 'anthropic' ? p.modelHint : ''; $('#ai-key').placeholder = p.needsKey ? 'Paste the key from your provider account' : 'Not needed'; };
+  $('#ai-provider').onchange = sync; sync();
+  $('#ai-add').onclick = async () => { $('#ai-err').textContent = ''; try { await api('/api/ai', { method: 'POST', body: JSON.stringify({ provider: $('#ai-provider').value, model: $('#ai-model').value, apiKey: $('#ai-key').value, baseUrl: $('#ai-base').value, name: $('#ai-name').value }) }); AI = await api('/api/ai'); renderAiSettings(el); refreshJobs(); } catch (e) { $('#ai-err').textContent = e.message; } };
+  el.onclick = async (e) => { const d = e.target.dataset; const msg = (id, t, bad) => { const m = el.querySelector(`[data-aimsg="${id}"]`); if (m) { m.textContent = t; m.style.color = bad ? 'var(--bad)' : 'var(--good)'; } };
+    if (d.aiuse) { await api(`/api/ai/${d.aiuse}/use`, { method: 'POST' }); AI = await api('/api/ai'); renderAiSettings(el); refreshJobs(); }
+    else if (d.aidel) { if (!confirm('Remove this AI connection and its saved key?')) return; await api('/api/ai/' + d.aidel, { method: 'DELETE' }); AI = await api('/api/ai'); renderAiSettings(el); refreshJobs(); }
+    else if (d.aitest) { msg(d.aitest, 'Testing…'); const r = await api(`/api/ai/${d.aitest}/test`, { method: 'POST' }); msg(d.aitest, r.ok ? 'Working' : r.error, !r.ok); } };
+}
+const aiPicker = (id) => (AI.connections.length ? `<select id="${id}" aria-label="Which AI to use">${AI.connections.map((c) => `<option value="${esc(c.id)}" ${c.active ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>` : '');
+
+/* ── job view ── */
+async function selectJob(id) {
+  if (S.es) { S.es.close(); S.es = null; }
+  clearInterval(S.batchTimer); S.batch = null; $('#jobview').onclick = null;
+  S.id = id; S.tab = 'overview'; S.cache = {}; S.pageFilter = ''; S.pageStatus = '';
+  closeDrawer(); startCard.classList.add('compact');
+  await loadJob(); refreshJobs();
+  $('#jobview').scrollIntoView({ block: 'start' });
+}
+async function loadJob() {
+  S.job = await api('/api/jobs/' + S.id);
+  S.log = S.job.log || [];
+  S.pages = await api(`/api/jobs/${S.id}/pages`);
+  S.cache = {};
+  renderJob();
+  if (LIVE.includes(S.job.status) && !S.es) listen();
+}
+function listen() {
+  const es = S.es = new EventSource(`/api/jobs/${S.id}/events`); const id = S.id;
+  let dirty = false;
+  const tick = setInterval(() => { if (S.es !== es) return clearInterval(tick); if (dirty) { dirty = false; softUpdate(); } }, 700);
+  es.addEventListener('stats', (e) => { if (S.id !== id) return; S.job.stats = JSON.parse(e.data); dirty = true; });
+  es.addEventListener('page', (e) => { if (S.id !== id) return; S.pages.push(JSON.parse(e.data)); dirty = true; });
+  es.addEventListener('log', (e) => { if (S.id !== id) return; S.log.push(JSON.parse(e.data)); if (S.log.length > 800) S.log.shift(); dirty = true; });
+  es.addEventListener('human', (e) => { if (S.id !== id) return; const h = JSON.parse(e.data); S.job.human = h.state === 'open' ? h : null; renderJob(); });
+  es.addEventListener('status', async (e) => {
+    if (S.id !== id) return; const d = JSON.parse(e.data); S.job.status = d.status; S.job.error = d.error;
+    if (!LIVE.includes(d.status)) { es.close(); S.es = null; await loadJob(); refreshJobs(); } else renderJob();
+  });
+}
+function softUpdate() {   // live refresh without rebuilding the tab the person is working in
+  renderHead();
+  if (S.tab === 'overview') renderTab();
+  else if (S.tab === 'log') { const el = $('#fulllog'); if (el) { const stick = el.scrollTop + el.clientHeight >= el.scrollHeight - 30; el.textContent = S.log.map((l) => l.line).join('\n'); if (stick) el.scrollTop = el.scrollHeight; } }
+  else if (S.tab === 'pages') renderPagesRows();
+}
+const TABS = [['overview', 'Overview'], ['pages', 'Pages'], ['search', 'Search'], ['images', 'Images'], ['files', 'Files'], ['api', 'Hidden data'], ['links', 'Links'], ['audit', 'Every angle'], ['askai', 'Ask AI'], ['changes', 'Changes'], ['issues', 'Issues'], ['about', 'Contacts & tech'], ['log', 'Log'], ['export', 'Export']];
+function renderJob() {
+  const v = $('#jobview'); v.hidden = false;
+  v.innerHTML = `<div id="jobhead"></div><div id="humanslot"></div><div class="tabs" id="tabs" role="tablist"></div><div id="tab"></div>`;
+  renderHead(); renderTab();
+  $('#tabs').onclick = (e) => { const b = e.target.closest('button'); if (b) { S.tab = b.dataset.t; renderHead(); renderTab(); } };
+}
+function renderHead() {
+  const j = S.job, st = j.stats || {}, live = LIVE.includes(j.status), sum = j.summary;
+  const acts = [];
+  if (j.status === 'running' || j.status === 'starting') acts.push(['pause', 'Pause']);
+  if (j.status === 'paused') acts.push(['resume', 'Resume']);
+  if (live) acts.push(['stop', 'Stop and keep results']);
+  if (['partial', 'stopped', 'interrupted', 'failed'].includes(j.status)) acts.push(['resume-crawl', j.status === 'partial' ? 'Continue past the page limit' : 'Continue where it stopped']);
+  if (!live) acts.push(['rerun', 'Scrape again'], ['repeat', 'Repeat this scrape'], ['delete', 'Delete']);
+  $('#jobhead').innerHTML = `<div>${j.batch ? `<button class="btn sm" data-back="${esc(j.batch.id)}" style="margin-bottom:8px">Back to ${esc(j.batch.name)}</button>` : ''}<h2>${esc(j.host)}</h2><div class="sub"><a href="${esc(j.url)}" target="_blank" rel="noopener noreferrer">${esc(j.url)}</a></div>
+    <div style="margin-top:6px;display:flex;gap:8px;flex-wrap:wrap"><span class="pill"><i class="dot ${esc(j.status)}"></i>${esc(STATUS[j.status] || j.status)}</span>
+    ${st.authenticated || (sum && sum.signedIn) ? '<span class="pill">Signed in</span>' : ''}${j.error ? `<span class="pill" style="color:var(--bad)">${esc(j.error)}</span>` : ''}</div></div>
+    <div class="acts">${acts.map(([a, l]) => `<button class="btn ${a === 'delete' ? 'danger' : ''}" data-act="${a}">${l}</button>`).join('')}</div>`;
+  $('#jobhead').onclick = onAct;
+  const h = j.human;
+  $('#humanslot').innerHTML = h ? `<div id="human" role="alert"><div><b>${h.reason === 'challenge' ? 'This site wants to check you are a person' : 'This site needs you to sign in'}</b>
+    A browser window has opened on this computer. ${h.reason === 'challenge' ? 'Complete the check there.' : 'Sign in there as you normally would.'} The scrape carries on by itself once you are through. Your password stays in that window and is never saved.</div>
+    <br>Closing that window skips ${esc(h.host || 'this site')}: it will not open again by itself, and the pages it guards are listed here as waiting on you.</div>
+    <button class="btn pri" data-act="continue">I'm done, continue</button><button class="btn" data-act="skip">Skip this site</button></div>` : '';
+  const waits = ((st.signIns || (sum && sum.signIns) || [])).filter((x) => x.pagesWaiting || x.state === 'declined' || x.state === 'unavailable');
+  if (waits.length && !h) $('#humanslot').innerHTML += `<div class="waiting"><h3>Waiting on you</h3><div style="color:var(--muted);margin-bottom:6px">These sites asked for a sign-in or a human check and were skipped. Nothing behind them was scraped. They will not pop up again by themselves.</div>${waits.map((x) => `<div class="row"><span><b>${esc(x.host)}</b> ${x.reason === 'challenge' ? 'wants to check you are a person' : 'needs a sign-in'}. ${x.pagesWaiting} ${x.pagesWaiting === 1 ? 'page is' : 'pages are'} waiting${x.state === 'unavailable' ? '. A window could not be opened on this computer' : ''}.</span><button class="btn sm" data-signin="${esc(x.host)}">${live ? 'Sign in now' : 'Sign in and scrape these pages'}</button><button class="btn sm" data-showwait="${esc(x.key)}">Show the pages</button></div><div data-waitlist="${esc(x.key)}" hidden style="font-size:12.5px;color:var(--muted);padding:2px 0 6px;word-break:break-all"></div>`).join('')}</div>`;
+  $('#humanslot').onclick = onAct;
+  const issuesN = sum ? Object.values(sum.issues || {}).reduce((n, a) => n + a.length, 0) : null;
+  const sf = sum && sum.perspectives ? sum.perspectives.security.summary : null;
+  const counts = { audit: sf ? sf.high + sf.medium : null, pages: S.pages.length, files: st.filesDownloaded ?? st.files, api: st.apiResponsesCaptured ?? st.apiResponses, issues: issuesN };
+  $('#tabs').innerHTML = TABS.map(([t, l]) => `<button role="tab" aria-selected="${S.tab === t}" class="${S.tab === t ? 'on' : ''}" data-t="${t}">${l}${counts[t] ? `<span class="n num">${counts[t]}</span>` : ''}</button>`).join('');
+}
+async function onAct(e) {
+  if (e.target.dataset && e.target.dataset.back) return selectBatch(e.target.dataset.back);
+  if (e.target.dataset && e.target.dataset.signin) { try { await api(`/api/jobs/${S.id}/signin?host=${encodeURIComponent(e.target.dataset.signin)}`, { method: 'POST' }); await loadJob(); refreshJobs(); } catch (err) { alert(err.message); } return; }
+  if (e.target.dataset && e.target.dataset.showwait) { const box = document.querySelector(`[data-waitlist="${CSS.escape(e.target.dataset.showwait)}"]`); const list = ((S.job.summary && S.job.summary.needSignIn) || []).filter((g) => g.key === e.target.dataset.showwait).map((g) => esc(g.url)); box.hidden = !box.hidden; box.innerHTML = list.length ? list.join('<br>') : 'The list of pages is available once this scrape finishes.'; return; }
+  if (e.target.dataset && e.target.dataset.act === 'repeat') {
+    const every = prompt('Repeat how often? Type: day, week or month', 'week'); if (!every) return;
+    const at = prompt('At what time? (24-hour, e.g. 06:00)', '06:00'); if (!at) return;
+    try { await api('/api/schedules', { method: 'POST', body: JSON.stringify({ url: S.job.url, options: S.job.options, every: every.trim().toLowerCase().replace(/ly$/, '').replace('dai', 'day'), at: at.trim(), weekday: new Date().getDay(), day: new Date().getDate() }) }); await refreshJobs(); alert('This scrape will now repeat while DeepScrape is open. Each run is compared with the one before, and the changes show under the site name in the list.'); } catch (err) { alert(err.message); }
+    return;
+  }
+  const a = e.target.dataset && e.target.dataset.act; if (!a) return;
+  try {
+    if (a === 'delete') { if (!confirm('Delete this scrape and all its saved files from this computer?')) return; await api('/api/jobs/' + S.id, { method: 'DELETE' }); S.id = null; S.job = null; $('#jobview').hidden = true; showStart(); return refreshJobs(); }
+    if (a === 'rerun') { const j = await api(`/api/jobs/${S.id}/rerun`, { method: 'POST' }); await refreshJobs(); return selectJob(j.id); }
+    if (a === 'resume-crawl') { const body = S.job.status === 'partial' ? { maxPages: Number(prompt('New page limit (0 = no limit)', '0') ?? 0) } : {}; await api(`/api/jobs/${S.id}/resume-crawl`, { method: 'POST', body: JSON.stringify(body) }); await loadJob(); return refreshJobs(); }
+    await api(`/api/jobs/${S.id}/${a}`, { method: 'POST' });
+    if (a === 'continue' || a === 'skip') { S.job.human = null; renderHead(); }
+  } catch (err) { alert(err.message); }
+}
+
+/* ── tabs ── */
+function renderTab() { const el = $('#tab'); ({ overview: tabOverview, pages: tabPages, search: tabSearch, images: tabImages, files: tabFiles, api: tabApi, links: tabLinks, audit: tabAudit, askai: tabAskAi, changes: tabChanges, issues: tabIssues, about: tabAbout, log: tabLog, export: tabExport }[S.tab])(el); }
+const needDone = (el, what) => { el.innerHTML = `<div class="empty">${what} appear here when the scrape finishes. ${LIVE.includes(S.job.status) ? 'It is still running.' : 'This scrape did not finish, so there is no report. Use "Continue where it stopped".'}</div>`; };
+
+function tabOverview(el) {
+  const j = S.job, st = j.stats || {}, sum = j.summary, live = LIVE.includes(j.status), P = S.pages;
+  const problems = P.filter((p) => p.error || p.status >= 400).length;
+  const el2 = st.elapsedMs || (j.durationSeconds || 0) * 1000; const speed = el2 > 3000 ? (P.length / (el2 / 60000)).toFixed(1) : '0';
+  const tiles = [['Pages scraped', P.length], ['In the queue', st.queued ?? st.stillQueued ?? 0], ['Images & assets', st.assetsSaved ?? st.assets ?? 0], ['Documents', st.filesDownloaded ?? st.files ?? 0], ['Hidden data responses', st.apiResponsesCaptured ?? st.apiResponses ?? 0], ['Documents read', st.documentsRead ?? 0], ['Problem pages', problems, problems > 0], ['Need a sign-in', st.pagesNeedingSignIn ?? st.needSignIn ?? 0], ['Saved', bytes(st.bytesSaved || 0)], ['Time', dur(el2)], ['Pages per minute', speed]];
+  const queued = live ? Math.min(st.queued || 0, 600) : 0;
+  const act = new Set(st.active || []);
+  const by = (f) => { const m = new Map(); for (const p of P) { const k = f(p); m.set(k, (m.get(k) || 0) + 1); } return [...m].sort((a, b) => String(a[0]).localeCompare(String(b[0]), undefined, { numeric: true })); };
+  const bars = (rows) => { const max = Math.max(1, ...rows.map((r) => r[1])); return rows.map(([k, n]) => `<div class="bar"><span>${esc(k)}</span><div><b style="width:${(n / max) * 100}%"></b></div><span class="num">${n}</span></div>`).join(''); };
+  el.innerHTML = `<div class="tiles">${tiles.map(([l, n, bad]) => `<div class="card tile ${bad ? 'alert' : ''}"><span class="num">${esc(n)}</span><small>${l}</small></div>`).join('')}</div>
+  <div class="card panel" style="margin-bottom:14px"><h3>Every page, one square each</h3><div id="mosaic">${P.map((p, i) => `<i class="${stClass(p)}" data-i="${i}" title="${esc((p.status || 'failed') + '  ' + p.url)}"></i>`).join('')}${[...act].map((u) => `<i class="act" title="Scraping now: ${esc(u)}"></i>`).join('')}${'<i class="q"></i>'.repeat(queued)}</div>
+    <div class="legend"><span><i style="background:var(--good)"></i>Loaded</span><span><i style="background:var(--warn)"></i>Not found or refused</span><span><i style="background:var(--bad)"></i>Server error or failed</span>${live ? '<span><i style="background:var(--accent)"></i>Scraping now</span><span><i style="background:var(--line)"></i>Queued</span>' : ''}<span>Click a square to open the page.</span></div></div>
+  <div class="cols">
+    ${live ? `<div class="card panel"><h3>Happening now</h3><div class="log" id="minilog">${esc(S.log.slice(-14).map((l) => l.line).join('\n')) || 'Starting the browser...'}</div></div>` : ''}
+    <div class="card panel"><h3>Responses</h3>${bars(by((p) => (p.error ? 'Failed to load' : 'HTTP ' + p.status))) || '<span class="empty">No pages yet.</span>'}</div>
+    <div class="card panel"><h3>Clicks from the start page</h3>${bars(by((p) => p.depth + (p.depth === 1 ? ' click' : ' clicks'))) || ''}</div>
+    ${sum && sum.needSignIn && sum.needSignIn.length ? `<div class="card panel"><h3>Not scraped: needs a sign-in</h3><div class="scroll" style="max-height:200px">${sum.needSignIn.map((g) => `<div style="word-break:break-all">${esc(g.url)}</div>`).join('')}</div><p style="color:var(--muted);margin:8px 0 0">Use "Scrape again" with "Sign in before starting" ticked.</p></div>` : ''}
+    ${sum ? `<div class="card panel"><h3>How it went</h3><dl class="kv" style="margin:0"><dt>robots.txt</dt><dd>${sum.robots.found ? (sum.robots.obeyed ? `Respected, ${sum.robots.blockedUrls.length} addresses left alone` : 'Found, ignored on request') : 'None on this site'}</dd><dt>Sitemap</dt><dd>${sum.sitemaps.urlsListed} addresses listed</dd><dt>Redirects</dt><dd>${sum.redirects.length}</dd><dt>Risky links skipped</dt><dd>${sum.skipped.stateChangingLinks.length} (log out, delete, add to cart)</dd><dt>Links to other sites</dt><dd>${sum.externalLinks.length}</dd></dl></div>` : ''}
+    <div class="card panel"><h3>Site structure</h3><div class="tree scroll" style="max-height:340px">${treeHtml(P)}</div></div>
+  </div>`;
+  $('#mosaic').onclick = (e) => { const i = e.target.dataset.i; if (i !== undefined) openPage(P[i].id); };
+  el.querySelector('.tree').onclick = (e) => { const l = e.target.closest('[data-pid]'); if (l) openPage(l.dataset.pid); };
+  const ml = $('#minilog'); if (ml) ml.scrollTop = ml.scrollHeight;
+}
+function treeHtml(P) {
+  const root = { kids: new Map(), page: null };
+  for (const p of P) { let u; try { u = new URL(p.url); } catch { continue; } let n = root; for (const seg of u.pathname.split('/').filter(Boolean)) { if (!n.kids.has(seg)) n.kids.set(seg, { kids: new Map(), page: null }); n = n.kids.get(seg); } if (u.search) { const k = u.search; if (!n.kids.has(k)) n.kids.set(k, { kids: new Map(), page: null }); n = n.kids.get(k); } n.page = n.page || p; }
+  const count = (n) => (n.page ? 1 : 0) + [...n.kids.values()].reduce((s, k) => s + count(k), 0);
+  const walk = (n, name, depth) => { const kids = [...n.kids].sort((a, b) => a[0].localeCompare(b[0]));
+    if (!kids.length) return `<div class="leaf" data-pid="${esc(n.page ? n.page.id : '')}">/${esc(name)}</div>`;
+    return `<details ${depth < 1 ? 'open' : ''}><summary>${n.page ? `<span data-pid="${esc(n.page.id)}">/${esc(name)}</span>` : '/' + esc(name)} <span class="n num" style="color:var(--muted)">${count(n)}</span></summary>${kids.map(([k, v]) => walk(v, k, depth + 1)).join('')}</details>`; };
+  return P.length ? walk(root, '', 0) : '<span class="empty">No pages yet.</span>';
+}
+
+function tabPages(el) {
+  el.innerHTML = `<div class="tools"><input type="search" id="pf" placeholder="Filter by address or title" value="${esc(S.pageFilter)}" aria-label="Filter pages">
+    <select id="ps" aria-label="Filter by result"><option value="">All results</option><option value="ok">Loaded</option><option value="bad">Problems</option><option value="api">With hidden data</option><option value="tables">With tables</option><option value="forms">With forms</option></select><span class="count" id="pc"></span></div>
+    <div class="card scroll"><table><thead><tr>${[['status', ''], ['title', 'Title'], ['url', 'Address'], ['depth', 'Clicks'], ['words', 'Words'], ['links', 'Links'], ['images', 'Images'], ['tables', 'Tables'], ['apiResponses', 'Data'], ['durationMs', 'Seconds']].map(([k, l]) => `<th data-k="${k}">${l || 'Result'}</th>`).join('')}</tr></thead><tbody id="prow"></tbody></table></div>`;
+  $('#ps').value = S.pageStatus;
+  $('#pf').oninput = (e) => { S.pageFilter = e.target.value; renderPagesRows(); };
+  $('#ps').onchange = (e) => { S.pageStatus = e.target.value; renderPagesRows(); };
+  el.querySelector('thead').onclick = (e) => { const k = e.target.dataset.k; if (!k) return; S.sort = { key: k, dir: S.sort.key === k ? -S.sort.dir : 1 }; renderPagesRows(); };
+  $('#prow').onclick = (e) => { const r = e.target.closest('tr'); if (r) openPage(r.dataset.id); };
+  renderPagesRows();
+}
+function renderPagesRows() {
+  const q = S.pageFilter.toLowerCase(), f = S.pageStatus;
+  let rows = S.pages.filter((p) => (!q || (p.url + ' ' + (p.title || '')).toLowerCase().includes(q)) && (!f || (f === 'ok' ? !p.error && p.status < 400 : f === 'bad' ? p.error || p.status >= 400 : f === 'api' ? p.apiResponses > 0 : p[f] > 0)));
+  const { key, dir } = S.sort;
+  rows.sort((a, b) => { const x = a[key] ?? '', y = b[key] ?? ''; return (typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true })) * dir; });
+  $('#pc').textContent = `${rows.length} of ${S.pages.length} pages` + (rows.length > 800 ? ', showing the first 800' : '');
+  $('#prow').innerHTML = rows.slice(0, 800).map((p) => `<tr class="click" data-id="${esc(p.id)}"><td><span class="st ${stClass(p)}">${p.error ? 'Failed' : p.status}</span></td><td>${esc(p.title || (p.kind === 'file' ? '(file)' : ''))}</td><td title="${esc(p.url)}">${esc(p.url.replace(/^https?:\/\/[^/]+/, '') || '/')}</td><td class="num">${p.depth}</td><td class="num">${p.words ?? ''}</td><td class="num">${p.links ?? ''}</td><td class="num">${p.images ?? ''}</td><td class="num">${p.tables || ''}</td><td class="num">${p.apiResponses || ''}</td><td class="num">${p.durationMs ? (p.durationMs / 1000).toFixed(1) : ''}</td></tr>`).join('') || `<tr><td colspan="10" class="empty">No pages match.</td></tr>`;
+}
+
+function tabSearch(el) {
+  el.innerHTML = `<div class="tools"><input type="search" id="sq" placeholder="Search the text of every page" style="min-width:min(520px,100%)" aria-label="Search all scraped text"><span class="count" id="sc"></span></div><div id="sr"><div class="empty">Type at least two letters. Every scraped page is searched, including text that was hidden behind tabs and "read more".</div></div>`;
+  let t; $('#sq').oninput = (e) => { clearTimeout(t); t = setTimeout(async () => {
+    const q = e.target.value.trim(); if (q.length < 2) return;
+    const r = await api(`/api/jobs/${S.id}/search?q=${encodeURIComponent(q)}`);
+    const hl = (s) => esc(s).replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), (m) => `<mark>${m}</mark>`);
+    $('#sc').textContent = `${r.total} matches on ${r.results.length} pages`;
+    $('#sr').innerHTML = r.results.map((x) => `<div class="card panel click" ${x.document ? `data-doc="${esc(x.textFile)}"` : `data-pid="${esc(x.id)}"`} style="margin-bottom:8px;cursor:pointer"><b>${hl(x.title || x.url)}</b> <span class="n num" style="color:var(--muted)">${x.count}</span><div style="color:var(--muted);font-size:12.5px;word-break:break-all">${hl(x.url)}</div>${x.snippets.map((s) => `<div style="margin-top:4px">…${hl(s)}…</div>`).join('')}</div>`).join('') || `<div class="empty">Nothing on this site mentions "${esc(q)}".</div>`;
+  }, 250); };
+  $('#sr').onclick = (e) => { const d = e.target.closest('[data-doc]'); if (d) return window.open(fileUrl(d.dataset.doc), '_blank', 'noopener'); const c = e.target.closest('[data-pid]'); if (c) openPage(c.dataset.pid); };
+  $('#sq').focus();
+}
+
+async function listTab(el, kind, placeholder, render, emptyMsg) {
+  el.innerHTML = `<div class="tools"><input type="search" id="lf" placeholder="${placeholder}" aria-label="${placeholder}"><span class="count" id="lc"></span></div><div id="lr"></div>`;
+  const load = async (q = '') => { const r = await api(`/api/jobs/${S.id}/${kind}?q=${encodeURIComponent(q)}`); $('#lc').textContent = `${r.total} found` + (r.rows.length < r.total ? `, showing ${r.rows.length}` : ''); $('#lr').innerHTML = r.rows.length ? render(r.rows) : `<div class="empty">${q ? 'Nothing matches.' : emptyMsg}</div>`; };
+  let t; $('#lf').oninput = (e) => { clearTimeout(t); t = setTimeout(() => load(e.target.value.trim()), 250); };
+  $('#lr').onclick = (e) => { const c = e.target.closest('[data-pid]'); if (c && !e.target.closest('a')) openPage(c.dataset.pid); };
+  await load();
+}
+const tabImages = (el) => listTab(el, 'images', 'Filter by address or description', (rows) => { const seen = new Set(); return `<div class="gallery">${rows.filter((r) => !seen.has(r.src) && seen.add(r.src)).map((r) => `<a href="${r.saved ? fileUrl(r.saved) : esc(r.src)}" target="_blank" rel="noopener noreferrer" title="${esc(r.src)}">${r.saved ? `<img loading="lazy" src="${fileUrl(r.saved)}" alt="${esc(r.alt || '')}">` : `<img alt="" style="opacity:.3">`}<span>${esc(r.alt || r.src.split('/').pop())}</span><span class="num">${r.width ? r.width + ' × ' + r.height : r.saved ? '' : 'not saved'}</span></a>`).join('')}</div>`; }, 'No images were found yet.');
+const tabApi = (el) => listTab(el, 'api', 'Filter by address', (rows) => `<p style="color:var(--muted);max-width:75ch;margin-top:0">Data the site quietly loaded in the background while each page was open. This is often the cleanest copy of prices, listings and records.</p><div class="card scroll"><table><thead><tr><th>Result</th><th>Method</th><th>Address</th><th>Type</th><th>Size</th><th>Seen on</th><th></th></tr></thead><tbody>${rows.map((r) => `<tr class="click" data-pid="${esc(r.page)}"><td><span class="st s${String(r.status)[0]}">${r.status}</span></td><td>${esc(r.method)}</td><td title="${esc(r.url)}">${esc(r.url)}</td><td>${esc(r.mime)}</td><td class="num">${bytes(r.bytes)}</td><td>${esc(r.pageUrl.replace(/^https?:\/\/[^/]+/, '') || '/')}</td><td><a href="${fileUrl(r.saved)}" target="_blank" rel="noopener">Open</a></td></tr>`).join('')}</tbody></table></div>`, 'This site did not load any background data.');
+const tabLinks = (el) => listTab(el, 'links', 'Filter links, e.g. "external", ".pdf", "facebook"', (rows) => `<div class="card scroll"><table><thead><tr><th>Link text</th><th>Goes to</th><th>Kind</th><th>Found on</th></tr></thead><tbody>${rows.map((r) => `<tr class="click" data-pid="${esc(r.page)}"><td>${esc(r.text)}</td><td title="${esc(r.href)}"><a href="${esc(/^https?:/.test(r.href || '') ? r.href : '#')}" target="_blank" rel="noopener noreferrer">${esc(r.href)}</a></td><td>${esc(r.scope)}${r.rel ? ' · ' + esc(r.rel) : ''}</td><td>${esc((r.from || '').replace(/^https?:\/\/[^/]+/, '') || '/')}</td></tr>`).join('')}</tbody></table></div>`, 'No links recorded yet.');
+
+async function tabFiles(el) {
+  const r = await api(`/api/jobs/${S.id}/files`);
+  const table = (rows, root) => `<div class="card scroll" style="max-height:50vh"><table><thead><tr><th>File</th><th>Size</th><th></th></tr></thead><tbody>${rows.map((f) => `<tr><td title="${esc(f.path)}">${esc(f.path)}</td><td class="num">${bytes(f.bytes)}</td><td><a href="${fileUrl(root + '/' + f.path)}" target="_blank" rel="noopener">Open</a> · <a href="${fileUrl(root + '/' + f.path, '?download')}">Save</a></td></tr>`).join('')}</tbody></table></div>`;
+  const docs = r.documents || [];
+  const docTable = docs.length ? `<h3 style="margin-bottom:8px">Documents read <span class="n num">${docs.length}</span></h3><div class="card scroll" style="max-height:50vh;margin-bottom:22px"><table><thead><tr><th>Document</th><th>Kind</th><th>Words</th><th>Size</th><th>Found on</th><th></th></tr></thead><tbody>${docs.map((d) => `<tr><td title="${esc(d.url)}">${esc(decodeURIComponent(d.url.split('/').pop() || d.url))}</td><td>${esc(d.kind)}${d.pages ? ', ' + d.pages + ' pages' : ''}${d.sheets ? ', ' + d.sheets + ' sheets' : ''}${d.slides ? ', ' + d.slides + ' slides' : ''}</td><td class="num">${d.words || (d.scanned ? 'scan, no text' : d.error ? 'unreadable' : 0)}</td><td class="num">${bytes(d.bytes)}</td><td>${esc(String(d.foundOn || '').replace(/^https?:\/\/[^/]+/, '') || '')}</td><td>${d.text ? `<a href="${fileUrl(d.text)}" target="_blank" rel="noopener">Read text</a> · ` : ''}<a href="${fileUrl(d.saved)}" target="_blank" rel="noopener">Open</a></td></tr>`).join('')}</tbody></table></div>` : '';
+  el.innerHTML = docTable + `<h3 style="margin-bottom:8px">Documents and downloads <span class="n num">${r.downloads.length}</span></h3>${r.downloads.length ? table(r.downloads, 'files') : '<div class="empty">No PDFs, spreadsheets or other documents were linked on the pages scraped so far.</div>'}
+    <h3 style="margin:22px 0 8px">Page assets <span class="n num">${r.assets.length}</span></h3>${r.assets.length ? table(r.assets, 'assets') : '<div class="empty">No assets saved.</div>'}`;
+}
+
+function tabIssues(el) {
+  const sum = S.job.summary; if (!sum) return needDone(el, 'Site checks');
+  const I = sum.issues; const item = (x) => (typeof x === 'string' ? esc(x) : x.from ? `${esc(x.from)} links to <b>${esc(x.to)}</b> (${x.status})` : x.pages ? `${x.value ? '"' + esc(x.value) + '": ' : ''}${x.pages.map(esc).join(', ')}` : `${esc(x.url)}${x.status ? ' (' + x.status + ')' : ''}${x.count ? ' (' + x.count + ')' : ''}${x.seconds ? ' (' + x.seconds + 's)' : ''}${x.error ? ': ' + esc(x.error) : ''}`);
+  const G = [['brokenInternalLinks', 'Links that lead to a missing page'], ['errorPages', 'Pages that returned an error'], ['failedToLoad', 'Pages that would not load'], ['javascriptErrors', 'Pages with script errors'], ['missingTitle', 'Pages with no title'], ['duplicateTitles', 'Titles used on more than one page'], ['missingDescription', 'Pages with no description for search engines'], ['missingH1', 'Pages with no main heading'], ['multipleH1', 'Pages with more than one main heading'], ['imagesWithoutAlt', 'Pages with images lacking a text description'], ['duplicateContent', 'Pages with identical text'], ['thinContent', 'Pages with under 50 words'], ['slowPages', 'Pages that took over 15 seconds'], ['noindexPages', 'Pages hidden from search engines']];
+  el.innerHTML = `<div class="card panel">${G.map(([k, l]) => { const a = I[k] || []; return `<details class="issue ${a.length ? '' : 'zero'}"><summary><b>${a.length}</b>${l}</summary>${a.length ? `<ul>${a.slice(0, 500).map((x) => `<li>${item(x)}</li>`).join('')}</ul>` : ''}</details>`; }).join('')}</div>`;
+}
+let auditSub = 'all', lensFam = 1, lensText = '';
+const COV = { measured: ['Measured', 'low'], evidence: ['Evidence', 'medium'], inside: ['Inside only', 'info'] };
+async function loadLenses() {
+  const box = $('#lenslist'); if (!box) return;
+  let r; try { r = await api(`/api/jobs/${S.id}/lenses?` + (lensText ? 'q=' + encodeURIComponent(lensText) : 'family=' + lensFam)); } catch (e) { box.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  if (!$('#lenslist')) return;
+  $('#famcards').innerHTML = r.overview.map((f) => `<button class="card famcard ${!lensText && f.id === lensFam ? 'on' : ''} ${f.inScope ? '' : 'out'}" data-fam="${f.id}"><b>${f.id}. ${esc(f.name)}</b><small>${f.counts.measured} measured, ${f.counts.evidence} evidence, ${f.counts.inside} inside${f.inScope ? '' : ' · not in this scrape\'s focus'}</small></button>`).join('');
+  $('#lenscount').textContent = lensText ? `${r.families.reduce((n, f) => n + f.lenses.length, 0)} lenses match` : '';
+  box.innerHTML = (lensText ? '' : `<div class="tools">${AI.connections.length ? `${aiPicker('vai')}<button class="btn" data-verdict="family">Write AI verdicts for this family</button><button class="btn" data-verdict="all">For every family in this scrape</button>` : '<span style="color:var(--muted)">Add your own AI (sidebar, "Your AI") to get a written verdict on each lens.</span>'}<span id="vstatus" style="color:var(--muted)">${r.ai ? `Verdicts by ${esc(r.ai.model)}` : ''}</span></div>`) + r.families.map((f) => `<div class="card panel" style="margin-bottom:12px"><h3>${f.id}. ${esc(f.name)}</h3><p style="color:var(--muted);margin:0 0 6px">${esc(f.about)}</p>${f.aiSummary ? `<div class="aiv" style="margin-left:0"><b>AI verdict on this family:</b> ${esc(f.aiSummary)}</div>` : ''}${f.lenses.map((x) => `<details class="finding"><summary><span class="sev ${COV[x.coverage][1]}" style="min-width:74px">${COV[x.coverage][0]}</span><b>${f.id}.${x.n} ${esc(x.name)}</b><span class="c">${x.ai ? `<span class="rate ${esc(x.ai.rating.split(' ')[0])}">${esc(x.ai.rating)}</span> ` : ''}${x.evidence.length} facts</span></summary>${x.ai ? `<div class="aiv" style="margin-left:72px"><b>AI verdict:</b> ${esc(x.ai.verdict)}${x.ai.action ? ` <i>Do: ${esc(x.ai.action)}</i>` : ''}</div>` : ''}<div style="color:var(--muted)">Matched by ${esc(x.matchedBy)}.${x.note ? ' ' + esc(x.note) : ''}</div>${x.evidence.map((e2) => `<div>${esc(e2)}</div>`).join('') || `<div>${x.coverage === 'inside' ? 'Nothing visible from outside.' : 'Nothing of this kind was found on the pages scraped.'}</div>`}</details>`).join('')}</div>`).join('') || '<div class="empty">No lens matches.</div>';
+  if (r.skipped.length && !lensText) box.insertAdjacentHTML('afterbegin', `<p style="color:var(--muted)">This scrape was focused on chosen families, so these were not collected: ${esc(r.skipped.join(', '))}. Lenses that rely on them will show fewer facts.</p>`);
+}
+function tabAudit(el) {
+  const sum = S.job.summary; if (!sum || !sum.perspectives) return needDone(el, 'The security, design, accessibility, speed, privacy and infrastructure reviews');
+  const P = sum.perspectives; const subs = [['all', 'All lenses'], ['security', 'Security'], ['design', 'Design'], ['accessibility', 'Accessibility'], ['performance', 'Speed'], ['privacy', 'Privacy'], ['infrastructure', 'Infrastructure'], ['content', 'Content & legal']];
+  const kvs = (rows) => `<dl class="kv" style="margin:0">${rows.filter((r) => r[1] != null && r[1] !== '').map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join('')}</dl>`;
+  const listOf = (a, f = esc) => (a && a.length ? a.map((x) => `<div style="word-break:break-all">${f(x)}</div>`).join('') : '<span style="color:var(--muted)">None</span>');
+  const tblA = (head, rows) => `<div class="scroll" style="max-height:420px"><table><thead><tr>${head.map((x) => `<th>${x}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td class="wrap">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const sw = (list) => `<div class="sw">${list.map((c) => `<div><i style="background:${esc(c.value.split(' ')[0])}"></i>${esc(c.value)}<small>${c.count} uses</small></div>`).join('')}</div>`;
+  let body = '';
+  if (auditSub === 'all') {
+    body = `<p style="color:var(--muted);max-width:88ch;margin-top:0">${LENS.total.toLocaleString()} lenses in ${LENS.families.length} families. Every lens has an entry: measured where the site itself shows the answer, evidence where the answer is a judgement, and a plain statement of what would be needed where it cannot be seen from a browser at all.</p>
+      <div class="tools"><input type="search" id="lensq" placeholder="Find a lens or a fact across all families" value="${esc(lensText)}" aria-label="Search lenses"><span class="count" id="lenscount"></span></div>
+      <div class="famgrid" id="famcards" style="margin:0 0 16px"></div><div id="lenslist"><div class="empty">Loading the lens review…</div></div>`;
+  } else if (auditSub === 'security') { const s = P.security;
+    body = `<p style="color:var(--muted);max-width:80ch;margin-top:0">${esc(s.note)} These are weaknesses visible from outside, not proof of a break-in.</p>
+      <div class="tiles">${['high', 'medium', 'low', 'info'].map((k) => `<div class="card tile ${k === 'high' && s.summary.high ? 'alert' : ''}"><span class="num">${s.summary[k]}</span><small>${{ high: 'Serious', medium: 'Should fix', low: 'Minor', info: 'Worth knowing' }[k]}</small></div>`).join('')}</div>
+      <div class="card panel">${s.findings.map((f) => `<details class="finding"><summary><span class="sev ${f.severity}">${{ high: 'Serious', medium: 'Should fix', low: 'Minor', info: 'Note' }[f.severity]}</span><b>${esc(f.title)}</b><span class="c">${f.pagesAffected ? f.pagesAffected + ' pages' : 'whole site'}</span></summary>${f.details.map((d) => `<div>${esc(d)}</div>`).join('')}<div class="fix">${esc(f.fix)}</div>${f.pages.length ? `<div style="color:var(--muted)">${f.pages.slice(0, 12).map(esc).join('<br>')}${f.pages.length > 12 ? '<br>and more' : ''}</div>` : ''}</details>`).join('') || '<div class="empty">Nothing to report.</div>'}</div>
+      ${s.publicSourceMaps.length ? `<div class="card panel" style="margin-top:14px"><h3>Original source code published by the site</h3>${listOf(s.publicSourceMaps.slice(0, 60))}</div>` : ''}
+      ${s.hiddenFormFields.length ? `<div class="card panel" style="margin-top:14px"><h3>Hidden form fields</h3><div class="chips">${s.hiddenFormFields.map((x) => `<span class="chip">${esc(x)}</span>`).join('')}</div></div>` : ''}`;
+  } else if (auditSub === 'design') { const d = P.design; const ty = d.typography || {};
+    body = `<div class="cols"><div class="card panel"><h3>Text colours</h3>${sw(d.colors.text)}</div><div class="card panel"><h3>Background colours</h3>${sw(d.colors.background)}</div><div class="card panel"><h3>Border colours</h3>${sw(d.colors.border)}</div>
+      <div class="card panel"><h3>Fonts and weights</h3>${d.fonts.map((f) => `<div style="font-family:'${esc(f.value.split(' / ')[0])}';font-weight:${esc(f.value.split(' / ')[1])};font-size:17px">${esc(f.value)} <small style="color:var(--muted);font:12px var(--body)">${f.count}</small></div>`).join('')}</div>
+      <div class="card panel"><h3>Type sizes</h3><div class="chips">${d.fontSizes.map((x) => `<span class="chip">${esc(x.value)} <span class="num" style="color:var(--muted)">${x.count}</span></span>`).join('')}</div><h3 style="margin-top:14px">Corner rounding</h3><div class="chips">${d.cornerRadii.map((x) => `<span class="chip">${esc(x.value)}</span>`).join('') || 'Square corners'}</div><h3 style="margin-top:14px">Screen-size breakpoints</h3>${listOf(d.breakpoints.map((x) => x.value))}</div>
+      <div class="card panel"><h3>How key elements are styled</h3>${Object.entries(ty).filter(([, v]) => v).map(([k, v]) => `<h4 style="margin:10px 0 4px;font-family:var(--display)">${esc(k)}</h4><div style="font-size:12.5px;color:var(--muted)">${esc(`${v.fontFamily.split(',')[0]} ${v.fontSize}/${v.lineHeight} weight ${v.fontWeight}, ${v.color}${v.borderRadius !== '0px' ? ', radius ' + v.borderRadius : ''}${v.padding !== '0px' ? ', padding ' + v.padding : ''}`)}</div>`).join('')}</div>
+      <div class="card panel"><h3>Design variables <span class="n num">${Object.keys(d.cssVariables).length}</span></h3><div class="scroll" style="max-height:320px;font:12.5px var(--code)">${Object.entries(d.cssVariables).map(([k, v]) => `<div>${/^(#|rgb|hsl)/.test(v) ? `<i style="display:inline-block;width:11px;height:11px;border-radius:2px;border:1px solid var(--line);background:${esc(v)}"></i> ` : ''}${esc(k)}: ${esc(v)}</div>`).join('') || '<span style="color:var(--muted)">None declared</span>'}</div></div>
+      <div class="card panel"><h3>Logo, shadows, font files</h3>${listOf(d.logos)}<h4 style="margin:12px 0 4px">Shadows</h4>${listOf(d.shadows.map((x) => x.value))}<h4 style="margin:12px 0 4px">Font files</h4>${listOf(d.fontFiles.map((f) => `${f.family} ${f.weight || ''}`))}</div></div>`;
+  } else if (auditSub === 'accessibility') { const a = P.accessibility;
+    body = `<p style="color:var(--muted);max-width:80ch;margin-top:0">${esc(a.note)}</p><div class="tiles">${[['Low-contrast text', a.lowContrastText], ['Images without a description', a.imagesWithoutDescription], ['Form fields without a label', a.formFieldsWithoutLabel], ['Links without text', a.linksWithoutText], ['Buttons without a name', a.buttonsWithoutName], ['Heading levels skipped', a.headingLevelsSkipped], ['Pages without a language', a.pagesWithoutLanguage], ['Pages blocking zoom', a.pagesBlockingZoom]].map(([l, n]) => `<div class="card tile ${n ? 'alert' : ''}"><span class="num">${n}</span><small>${l}</small></div>`).join('')}</div>
+      <div class="card panel"><h3>Pages needing the most attention</h3>${a.worstPages.length ? tblA(['Page', 'Problems', 'Low contrast', 'Unlabelled controls', 'Images'], a.worstPages.map((w) => [esc(w.url), w.problems, w.lowContrast, w.unlabelled, w.imagesWithoutDescription])) : '<div class="empty">No automated problems found.</div>'}<p style="color:var(--muted)">Open a page and choose "Audit" for the exact elements. Each page also has a saved accessibility tree, which is what a screen reader is given.</p></div>`;
+  } else if (auditSub === 'performance') { const p = P.performance; const av = p.averages; const types = Object.entries(p.bytesByType).sort((x, y) => y[1] - x[1]); const mx = Math.max(1, ...types.map((t) => t[1]));
+    body = `<p style="color:var(--muted);max-width:80ch;margin-top:0">${esc(p.note)}</p><div class="tiles">${[['Average page size', bytes(av.pageBytes)], ['Requests per page', av.requests], ['First paint', av.firstPaintMs != null ? av.firstPaintMs + ' ms' : '-'], ['Largest paint', av.largestPaintMs != null ? av.largestPaintMs + ' ms' : '-'], ['Layout shift', av.layoutShift ?? '-'], ['Elements per page', av.domNodes ?? '-']].map(([l, n]) => `<div class="card tile"><span class="num">${esc(n)}</span><small>${l}</small></div>`).join('')}</div>
+      <div class="cols"><div class="card panel"><h3>What the weight is made of</h3>${types.map(([k, n]) => `<div class="bar"><span>${esc(k)}</span><div><b style="width:${(n / mx) * 100}%"></b></div><span class="num">${bytes(n)}</span></div>`).join('')}</div>
+      <div class="card panel"><h3>Heaviest pages</h3>${tblA(['Page', 'Size', 'Requests'], p.heaviestPages.map((x) => [esc(x.url), bytes(x.bytes), x.requests]))}</div><div class="card panel"><h3>Slowest to show their main content</h3>${tblA(['Page', 'Largest paint', 'Layout shift'], p.slowestPages.map((x) => [esc(x.url), x.largestPaintMs + ' ms', x.layoutShift ?? '']))}</div></div>`;
+  } else if (auditSub === 'privacy') { const p = P.privacy;
+    body = `<div class="tiles">${[['Other companies contacted', p.thirdParties.length], ['Trackers and embeds', new Set(p.trackers.map((t) => t.service)).size], ['Cookies set', p.cookies.length], ['Pages showing a consent banner', `${p.pagesShowingConsentBanner} of ${p.pagesChecked}`]].map(([l, n]) => `<div class="card tile"><span class="num">${esc(n)}</span><small>${l}</small></div>`).join('')}</div>
+      <div class="cols"><div class="card panel"><h3>Who else the visitor's browser talks to</h3>${p.thirdParties.length ? tblA(['Host', 'Recognised as', 'Pages', 'Loads'], p.thirdParties.map((t) => [esc(t.host), esc(t.service || ''), t.pages, esc(t.kinds.join(', '))])) : '<div class="empty">Nobody. Everything comes from the site itself.</div>'}</div>
+      <div class="card panel"><h3>Cookies</h3>${p.cookies.length ? tblA(['Name', 'Set by', 'Lasts', 'Secure', 'Hidden from scripts', 'SameSite'], p.cookies.map((c) => [esc(c.name), esc(c.domain) + (c.fromAnotherSite ? ' (another site)' : ''), c.lastsDays ? c.lastsDays + ' days' : 'Until the browser closes', c.secure ? 'Yes' : 'No', c.httpOnly ? 'Yes' : 'No', esc(c.sameSite || 'Not set')])) : '<div class="empty">No cookies were set.</div>'}</div></div>`;
+  } else if (auditSub === 'infrastructure') { const i = P.infrastructure; const d = i.dns; const c = i.certificate;
+    body = `<div class="cols"><div class="card panel"><h3>Hosting</h3>${kvs([['IP addresses', esc(i.ipAddresses.join(', '))], ['IPv6', d && esc(d.ipv6.join(', '))], ['Points to', d && esc(d.alias.join(', '))], ['Reverse name', d && esc(d.reverseName.join(', '))], ['Server software', esc(i.serverSoftware.join(', ') || 'Not disclosed')], ['Connection', esc(Object.keys(i.protocols).join(', '))], ['Name servers', d && esc(d.nameServers.join(', '))]])}</div>
+      <div class="card panel"><h3>Certificate</h3>${c ? kvs([['Issued by', esc(c.issuer)], ['Issued to', esc(c.subjectName)], ['Valid', esc(`${c.validFrom} to ${c.validTo}`)], ['Encryption', esc(c.protocol)]]) : '<div class="empty">The site is not on HTTPS, so there is no certificate.</div>'}</div>
+      <div class="card panel"><h3>Email set-up for the domain</h3>${d ? kvs([['Mail servers', esc(d.mailServers.join(', ') || 'None')], ['SPF', esc(d.spf || 'Not published')], ['DMARC', esc(d.dmarc || 'Not published')], ['Certificate authorities allowed', esc(d.caa.map((x) => x.issue || x.issuewild || '').filter(Boolean).join(', '))]]) + `<h4 style="margin:12px 0 4px">Other text records</h4>${listOf(d.textRecords)}` : '<div class="empty">No public DNS records for this address (local or IP address).</div>'}</div>
+      <div class="card panel"><h3>Site files</h3>${kvs([['robots.txt', i.robotsTxt ? 'Present' : 'None'], ['Paths robots.txt asks to stay out of', esc((sum.robots.disallowedPaths || []).join(', '))], ['Addresses in the sitemap', i.sitemapAddresses], ['Other standard files found', esc(i.standardFiles.join(', ') || 'None')]])}</div></div>`;
+  } else { const c = P.content; const l = P.legal; const names = { privacyPolicy: 'Privacy policy', terms: 'Terms', cookiePolicy: 'Cookie policy', accessibilityStatement: 'Accessibility statement', paiaManual: 'PAIA manual', imprint: 'Legal notice', refunds: 'Refunds and returns', contactPage: 'Contact page', aboutPage: 'About page', careers: 'Careers', copyright: 'Copyright line', companyNumbers: 'Registration numbers' };
+    body = `<div class="cols"><div class="card panel"><h3>Content</h3>${kvs([['Pages', c.pages], ['Words', c.totalWords], ['Documents', c.documents], ['Languages declared', esc(Object.entries(c.languages).map(([k, n]) => `${k} (${n})`).join(', '))]])}<h4 style="margin:12px 0 6px">Most used words</h4><div class="chips">${c.topWords.map((w) => `<span class="chip">${esc(w.word)} <span class="num" style="color:var(--muted)">${w.count}</span></span>`).join('')}</div></div>
+      <div class="card panel"><h3>Legal and policy pages</h3>${kvs(Object.entries(names).map(([k, n]) => [n, l[k] ? esc(Array.isArray(l[k]) ? l[k].join(', ') : l[k]) : '<span style="color:var(--muted)">Not found</span>']))}</div></div>`; }
+  el.innerHTML = `<div class="subtabs">${subs.map(([k, n]) => `<button class="${auditSub === k ? 'on' : ''}" data-s="${k}">${n}</button>`).join('')}<a class="btn sm" style="margin-left:auto" href="${fileUrl('report.md', '?download')}">Download the full report</a></div>${body}`;
+  el.querySelector('.subtabs').onclick = (e) => { const b = e.target.closest('button'); if (b) { auditSub = b.dataset.s; tabAudit(el); } };
+  if (auditSub === 'all') {
+    loadLenses();
+    $('#lenslist').onclick = async (e) => { const k = e.target.dataset.verdict; if (!k) return;
+      const fams = k === 'family' ? [lensFam] : []; const n = k === 'family' ? 'this family' : 'every family in this scrape';
+      if (!confirm(`Send the facts for ${n}, plus a short excerpt of the site's text, to your AI? This uses your API account.`)) return;
+      try { await api(`/api/jobs/${S.id}/verdicts`, { method: 'POST', body: JSON.stringify({ families: fams, ai: ($('#vai') || {}).value }) }); } catch (err) { return alert(err.message); }
+      const poll = setInterval(async () => { const st2 = await api(`/api/jobs/${S.id}/verdicts`).catch(() => null); const el2 = $('#vstatus'); if (!st2 || !el2) return clearInterval(poll); const s2 = st2.status || {};
+        el2.textContent = s2.state === 'running' ? `Writing verdicts… ${s2.done || 0} of ${s2.total || '?'} families done` : s2.state === 'failed' ? `Stopped: ${s2.error}` : 'Verdicts written';
+        if (s2.state !== 'running') { clearInterval(poll); if (s2.state !== 'failed') loadLenses(); else el2.style.color = 'var(--bad)'; } }, 1500);
+    };
+    $('#famcards').onclick = (e) => { const c = e.target.closest('[data-fam]'); if (c) { lensFam = +c.dataset.fam; lensText = ''; $('#lensq').value = ''; loadLenses(); } };
+    let t; $('#lensq').oninput = (e) => { clearTimeout(t); t = setTimeout(() => { lensText = e.target.value.trim(); loadLenses(); }, 250); };
+  }
+}
+async function tabAskAi(el) {
+  if (!S.job.summary) return needDone(el, 'Questions to your AI');
+  const past = await api(`/api/jobs/${S.id}/ask`).catch(() => []);
+  const PRESETS = ['Summarise this website: what it is, who it is for, and what it offers.', 'List the ten most important things to fix on this site, most important first, with the page each applies to.', 'Review this site as a first-time visitor on a phone would experience it.', 'Write a security and privacy briefing for the site owner in plain language.', 'What does this site say about prices, fees and terms? Quote the pages.', 'What is missing from this site that a visitor would expect to find?'];
+  el.innerHTML = `<div class="card panel" style="margin-bottom:14px"><h3>Ask your AI about this site</h3>
+    ${AI.connections.length ? `<p style="color:var(--muted);max-width:85ch;margin:0 0 10px">Your AI is given the measured facts about the site, then as much of the page and document text as fits, most relevant to your question first. It answers only from that.</p>
+      <textarea id="askq" rows="3" style="width:100%;border:1px solid var(--line);border-radius:8px;background:var(--bg);padding:9px 12px" placeholder="Ask a question, or tell it what to write"></textarea>
+      <div class="tools" style="margin:8px 0">${aiPicker('askai')}<button class="btn pri" id="askgo">Ask</button><span id="askst" style="color:var(--muted)"></span></div>
+      <div class="chips">${PRESETS.map((p2, i) => `<button class="chip" data-preset="${i}" style="border:0;cursor:pointer;font:inherit;color:inherit">${esc(p2.slice(0, 58))}${p2.length > 58 ? '…' : ''}</button>`).join('')}</div>` : '<div class="empty" style="padding:4px 0">Add your own AI first: use "Set up" next to "Your AI" in the sidebar. Any provider you have an API key for will do, or Ollama on this computer.</div>'}</div>
+    <div id="answers">${past.map((a) => `<div class="card panel" style="margin-bottom:10px"><b>${esc(a.question)}</b><div style="color:var(--muted);font-size:12.5px;margin:2px 0 8px">${esc(a.ai)} · ${new Date(a.at).toLocaleString()} · ${a.sourcesSent} of ${a.sourcesTotal} pages and documents sent</div><div class="answer">${esc(a.answer)}</div></div>`).join('')}</div>`;
+  if (!AI.connections.length) return;
+  el.onclick = (e) => { const i = e.target.dataset.preset; if (i !== undefined) { $('#askq').value = PRESETS[i]; $('#askq').focus(); } };
+  $('#askgo').onclick = async () => { const q = $('#askq').value.trim(); if (!q) return; $('#askgo').disabled = true; $('#askst').style.color = 'var(--muted)'; $('#askst').textContent = 'Reading the site and thinking… this can take a minute.';
+    try { await api(`/api/jobs/${S.id}/ask`, { method: 'POST', body: JSON.stringify({ question: q, ai: $('#askai').value }) }); tabAskAi(el); } catch (err) { $('#askst').textContent = err.message; $('#askst').style.color = 'var(--bad)'; $('#askgo').disabled = false; } };
+}
+async function tabChanges(el) {
+  if (!S.job.summary) return needDone(el, 'Changes since an earlier scrape');
+  const earlier = await api(`/api/jobs/${S.id}/earlier`).catch(() => []);
+  if (!earlier.length) { el.innerHTML = '<div class="empty">There is no other finished scrape of this site to compare with yet. Scrape it again later (or use "Repeat this scrape") and the changes will show here.</div>'; return; }
+  const pick = S.cmpWith && earlier.find((x) => x.id === S.cmpWith) ? S.cmpWith : earlier[0].id;
+  let c; try { c = await api(`/api/jobs/${S.id}/compare?with=${encodeURIComponent(pick)}`); } catch (e) { el.innerHTML = `<div class="empty">${esc(e.message)}</div>`; return; }
+  const fmt = (n, unit) => (n == null ? '-' : unit === 'bytes' ? bytes(n) : unit === 'ms' ? n + ' ms' : n);
+  const lst = (title, rows, f) => (rows.length ? `<div class="card panel"><h3>${title} <span class="n num">${rows.length}</span></h3><div class="scroll" style="max-height:260px">${rows.slice(0, 300).map((x) => `<div style="word-break:break-all;padding:1px 0">${f(x)}</div>`).join('')}</div></div>` : '');
+  const sd = (title, d) => (d.added.length || d.removed.length ? `<div class="card panel"><h3>${title}</h3>${d.added.map((x) => `<div style="color:var(--good)">+ ${esc(x)}</div>`).join('')}${d.removed.map((x) => `<div style="color:var(--bad)">− ${esc(x)}</div>`).join('')}</div>` : '');
+  el.innerHTML = `<div class="tools"><label for="cmpsel">Compare with</label><select id="cmpsel">${earlier.map((x) => `<option value="${esc(x.id)}" ${x.id === pick ? 'selected' : ''}>${new Date(x.finishedAt || 0).toLocaleString()} (${x.pages || 0} pages)</option>`).join('')}</select><span class="count">${new Date(c.older.scrapedAt).toLocaleString()} → ${new Date(c.newer.scrapedAt).toLocaleString()}</span></div>
+    <div class="card panel" style="margin-bottom:14px"><h3>${esc(c.headline)}</h3><div class="scroll" style="max-height:none"><table><thead><tr><th>Measure</th><th>Before</th><th>Now</th><th>Change</th></tr></thead><tbody>${c.numbers.map((n) => `<tr><td>${esc(n.label)}</td><td class="num">${fmt(n.was, n.unit)}</td><td class="num">${fmt(n.now, n.unit)}</td><td class="num">${n.change ? (n.change > 0 ? '+' : '') + fmt(n.change, n.unit) : ''}</td></tr>`).join('')}</tbody></table></div></div>
+    <div class="cols">${lst('New pages', c.pages.added, (x) => `${esc(x.url)}`)}${lst('Pages that are gone', c.pages.removed, (x) => esc(x.url))}${lst('Pages whose text changed', c.pages.changed, (x) => `${esc(x.url)} <span style="color:var(--muted)">${x.wordsWas} → ${x.wordsNow} words</span>`)}${lst('Pages whose result changed', c.pages.statusChanged, (x) => `${esc(x.url)} <span style="color:var(--muted)">${x.was} → ${x.now}</span>`)}${lst('Titles that changed', c.pages.titleChanged, (x) => `${esc(x.url)}<br><span style="color:var(--muted)">${esc(x.was)} → ${esc(x.now)}</span>`)}
+      ${lst('New security findings', c.security.new, (x) => `<span class="sev ${x.severity}">${x.severity}</span> ${esc(x.title)}`)}${lst('Security findings resolved', c.security.resolved, (x) => esc(x.title))}${sd('Technology', c.technology)}${sd('Other hosts contacted', c.otherHosts)}${sd('Cookies', c.cookies)}${sd('Documents', c.documents)}${sd('Email addresses', c.emails)}</div>
+    ${c.anything ? '' : '<div class="empty">Nothing changed between these two scrapes.</div>'}`;
+  $('#cmpsel').onchange = (e) => { S.cmpWith = e.target.value; tabChanges(el); };
+}
+function tabAbout(el) {
+  const sum = S.job.summary; if (!sum) return needDone(el, 'Contact details and technology');
+  const c = sum.contacts; const list = (a, f = esc) => (a.length ? a.map((x) => `<div style="word-break:break-all">${f(x)}</div>`).join('') : '<span style="color:var(--muted)">None found</span>');
+  el.innerHTML = `<div class="cols"><div class="card panel"><h3>Email addresses <span class="n num">${c.emails.length}</span></h3>${list(c.emails)}</div><div class="card panel"><h3>Phone numbers <span class="n num">${c.phones.length}</span></h3>${list(c.phones)}</div>
+    <div class="card panel"><h3>Social profiles <span class="n num">${c.socials.length}</span></h3>${list(c.socials, (x) => `<a href="${esc(x)}" target="_blank" rel="noopener noreferrer">${esc(x)}</a>`)}</div>
+    <div class="card panel"><h3>Built with</h3><div class="chips">${sum.technologies.map((t) => `<span class="chip">${esc(t.name)} <span class="num" style="color:var(--muted)">${t.pages}</span></span>`).join('') || '<span style="color:var(--muted)">Nothing recognised</span>'}</div><p style="color:var(--muted);margin:10px 0 0">The number is how many pages each was seen on.</p></div>
+    <div class="card panel"><h3>Other sites this one links to <span class="n num">${sum.externalLinks.length}</span></h3><div class="scroll" style="max-height:300px">${list(sum.externalLinks.slice(0, 600), (x) => `<a href="${esc(x)}" target="_blank" rel="noopener noreferrer">${esc(x)}</a>`)}</div></div></div>`;
+}
+function tabLog(el) { el.innerHTML = `<div class="log tall" id="fulllog">${esc(S.log.map((l) => l.line).join('\n')) || 'Nothing logged in this session. The full log is in crawl.log inside the results folder.'}</div>`; const l = $('#fulllog'); l.scrollTop = l.scrollHeight; }
+let repFams = null, repDetail = 'findings', EXP = null, expSub = 'custom';
+const expState = (() => { try { return JSON.parse(localStorage.getItem('ds-export')) || {}; } catch { return {}; } })();
+const saveExp = () => { try { localStorage.setItem('ds-export', JSON.stringify(expState)); } catch {} };
+async function tabExport(el) {
+  const done = !!S.job.summary;
+  if (!done) { el.innerHTML = `<div class="empty">Exports can be built once the scrape has finished. ${LIVE.includes(S.job.status) ? 'It is still running.' : 'Use "Continue where it stopped" so it can finish.'}</div><p><a class="btn" href="/api/jobs/${S.id}/zip">Download what has been saved so far (ZIP)</a></p>`; return; }
+  if (!EXP) EXP = await api('/api/export-options');
+  if (!expState.include) Object.assign(expState, { include: ['pages', 'content', 'links', 'security', 'checks'], files: [], format: 'xlsx' });
+  el.innerHTML = `<div class="subtabs">${[['custom', 'Choose what to export'], ['lens', 'Lens report'], ['raw', 'Raw files']].map(([k, n]) => `<button class="${expSub === k ? 'on' : ''}" data-es="${k}">${n}</button>`).join('')}</div><div id="expbody"></div>`;
+  el.querySelector('.subtabs').onclick = (e) => { const b = e.target.closest('button'); if (b) { expSub = b.dataset.es; tabExport(el); } };
+  ({ custom: expCustom, lens: expLens, raw: expRaw }[expSub])($('#expbody'));
+}
+function expCustom(el) {
+  const st = expState; const scope = S.exportScope && S.exportScope.id === S.id ? S.exportScope : (S.exportScope = { id: S.id, section: '', contains: '', result: '' });
+  const fmtOf = (id) => EXP.formats.find((f) => f.id === id); const carriesFiles = !!fmtOf(st.format).files;
+  el.innerHTML = `<p style="color:var(--muted);max-width:88ch;margin:0 0 12px">Choose what you want, from which pages, in which format. Your choices are remembered for next time.</p>
+    <div class="card panel" style="margin-bottom:12px"><h3 style="font-size:15px">Start from a ready-made choice</h3><div class="chips">${EXP.presets.map((p) => `<button class="chip" data-preset="${p.id}" title="${esc(p.about)}" style="border:1px solid var(--line);cursor:pointer;font:inherit;color:inherit;padding:4px 11px">${esc(p.label)}</button>`).join('')}</div></div>
+    <div class="steps">
+    <div class="card step"><h3>What to include</h3>
+      <div class="tools" style="margin:0"><button class="btn sm" data-all="1">Tick everything</button><button class="btn sm" data-all="0">Clear</button><span class="count" id="pickcount"></span></div>
+      ${EXP.groups.map((g) => `<div class="grp">${g}<button data-grp="${g}">all</button></div><div class="pickgrid">${EXP.datasets.filter((d) => d.group === g).map((d) => `<label class="pick"><input type="checkbox" data-ds="${d.id}" ${st.include.includes(d.id) ? 'checked' : ''}><span>${esc(d.label)} <span class="n" data-rows="${d.id}"></span><small>${esc(d.about)}</small></span></label>`).join('')}</div>`).join('')}
+      <div class="grp">Files <span style="font:400 12.5px var(--body);color:var(--muted)">only a ZIP folder can carry these</span></div><div class="pickgrid">${EXP.files.map((f) => `<label class="pick"><input type="checkbox" data-fl="${f.id}" ${st.files.includes(f.id) ? 'checked' : ''}><span>${esc(f.label)} <span class="n" data-size="${f.id}"></span><small>${esc(f.about)}</small></span></label>`).join('')}</div></div>
+    <div class="card step"><h3>Which pages</h3>
+      <div class="tools" style="margin:0"><select id="exsec" aria-label="Section of the site"><option value="">Every section</option></select><input type="search" id="excont" placeholder="Only addresses or titles containing…" value="${esc(scope.contains)}" aria-label="Only pages containing">
+      <select id="exres" aria-label="Page result"><option value="">Any result</option><option value="ok" ${scope.result === 'ok' ? 'selected' : ''}>Only pages that loaded</option><option value="problems" ${scope.result === 'problems' ? 'selected' : ''}>Only pages with problems</option></select><span class="count" id="pagecount"></span></div>
+      <p style="color:var(--muted);font-size:13px;margin:8px 0 0">Site-wide items (technology, cookies, design, lens review) are not narrowed by page.</p></div>
+    <div class="card step"><h3>Format</h3><div class="fmtpick">${EXP.formats.map((f) => `<label><input type="radio" name="exfmt" value="${f.id}" ${st.format === f.id ? 'checked' : ''}><b>${esc(f.label)}</b><small>${esc(f.about)}</small></label>`).join('')}</div>
+      <p id="fmtnote" style="color:var(--warn);font-size:13px;margin:8px 0 0"></p></div></div>
+    <div class="summarybar"><div id="exsum">Working out what this contains…</div><a class="btn pri" id="exgo" href="#">Download</a></div>`;
+  const read = () => { st.include = [...el.querySelectorAll('[data-ds]:checked')].map((x) => x.dataset.ds); st.files = [...el.querySelectorAll('[data-fl]:checked')].map((x) => x.dataset.fl); st.format = (el.querySelector('[name=exfmt]:checked') || {}).value || 'xlsx'; scope.section = $('#exsec').value; scope.contains = $('#excont').value.trim(); scope.result = $('#exres').value; saveExp(); };
+  const query = (withFormat) => `include=${st.include.join(',')}&files=${st.files.join(',')}&section=${encodeURIComponent(scope.section)}&contains=${encodeURIComponent(scope.contains)}&result=${scope.result}` + (withFormat ? `&format=${st.format}` : '');
+  let timer, seq = 0;
+  const refresh = () => { read(); clearTimeout(timer);
+    const files = !!fmtOf(st.format).files; $('#fmtnote').textContent = st.files.length && !files ? `${fmtOf(st.format).label} cannot carry files, so the ${st.files.length} file group${st.files.length === 1 ? '' : 's'} you ticked will be left out. Choose "ZIP folder" to include them.` : '';
+    const none = !st.include.length && !(files && st.files.length); const go = $('#exgo'); go.href = none ? '#' : `/api/jobs/${S.id}/export?${query(true)}`; go.style.opacity = none ? .5 : 1; go.style.pointerEvents = none ? 'none' : '';
+    $('#pickcount').textContent = `${st.include.length} data sets, ${st.files.length} file groups ticked`;
+    if (none) { $('#exsum').textContent = 'Tick at least one thing to export.'; return; }
+    timer = setTimeout(async () => { const mine = ++seq; let r; try { r = await api(`/api/jobs/${S.id}/export/estimate?include=${EXP.datasets.map((d) => d.id).join(',')}&files=${EXP.files.map((f) => f.id).join(',')}&section=${encodeURIComponent(scope.section)}&contains=${encodeURIComponent(scope.contains)}&result=${scope.result}`); } catch (e) { $('#exsum').textContent = e.message; return; } if (mine !== seq || !$('#exsum')) return;
+      const sel = $('#exsec'); if (sel.options.length === 1) { sel.innerHTML = '<option value="">Every section</option>' + r.sections.map((x) => `<option value="${esc(x.section)}" ${x.section === scope.section ? 'selected' : ''}>${esc(x.section)} (${x.pages} pages)</option>`).join(''); }
+      el.querySelectorAll('[data-rows]').forEach((x) => { const n = r.rows[x.dataset.rows]; x.textContent = n === undefined ? '' : n.toLocaleString(); });
+      el.querySelectorAll('[data-size]').forEach((x) => { const f = r.files[x.dataset.size]; x.textContent = f ? `${f.files.toLocaleString()} files, ${bytes(f.bytes)}` : ''; });
+      $('#pagecount').textContent = `${r.pagesMatched} of ${r.pagesTotal} pages`;
+      const rows = st.include.reduce((a, k) => a + (r.rows[k] || 0), 0); const picked = files ? st.files.map((k) => r.files[k]).filter(Boolean) : []; const fb = picked.reduce((a, f) => a + f.bytes, 0); const fn = picked.reduce((a, f) => a + f.files, 0);
+      $('#exsum').innerHTML = `<b>${esc(fmtOf(st.format).label)}</b> covering <b>${r.pagesMatched}</b> of ${r.pagesTotal} pages: <b>${rows.toLocaleString()}</b> rows across ${st.include.length} data set${st.include.length === 1 ? '' : 's'}${fn ? `, plus <b>${fn.toLocaleString()}</b> files (${bytes(fb)})` : ''}.${r.pagesMatched === 0 ? ' <span style="color:var(--bad)">No pages match; widen the page choice.</span>' : ''}${['md', 'docx', 'pdf', 'html'].includes(st.format) && rows > 2500 ? ' <span style="color:var(--warn)">Long tables are cut short in document formats; Excel or CSV carries every row.</span>' : ''}${r.note ? ' ' + esc(r.note) : ''}`; }, 300); };
+  el.onchange = refresh; let ct; $('#excont').oninput = () => { clearTimeout(ct); ct = setTimeout(refresh, 350); };
+  el.onclick = (e) => { const d = e.target.dataset; const set = (sel, on) => el.querySelectorAll(sel).forEach((x) => (x.checked = on));
+    if (d.all !== undefined) { set('[data-ds],[data-fl]', d.all === '1'); refresh(); }
+    else if (d.grp) { const ids = EXP.datasets.filter((x) => x.group === d.grp).map((x) => x.id); const allOn = ids.every((i) => el.querySelector(`[data-ds="${i}"]`).checked); ids.forEach((i) => (el.querySelector(`[data-ds="${i}"]`).checked = !allOn)); refresh(); }
+    else if (d.preset) { const p = EXP.presets.find((x) => x.id === d.preset); set('[data-ds],[data-fl]', false); p.include.forEach((i) => (el.querySelector(`[data-ds="${i}"]`).checked = true)); p.files.forEach((i) => (el.querySelector(`[data-fl="${i}"]`).checked = true)); el.querySelector(`[name=exfmt][value="${p.format}"]`).checked = true; refresh(); } };
+  refresh();
+}
+function expLens(el) {
+  const sum = S.job.summary;
+  if (repFams === null || S.repFor !== S.id) { repFams = sum && sum.lensFamilies ? [...sum.lensFamilies] : LENS.families.map((f) => f.id); S.repFor = S.id; }
+  const all = repFams.length === LENS.families.length; const q = `families=${all ? '' : repFams.join(',')}&detail=${repDetail}`;
+  el.innerHTML = `<div class="card panel"><h3>Lens report</h3><p style="color:var(--muted);margin:0 0 10px;max-width:85ch">A written report through the lens families you pick, with each lens's facts and any AI verdicts.</p>
+      <div class="tools" style="margin-bottom:6px"><button class="btn sm" data-rep="all">All ${LENS.families.length} families</button><button class="btn sm" data-rep="none">Clear</button>${sum.lensFamilies ? '<button class="btn sm" data-rep="scope">The families this scrape focused on</button>' : ''}<span class="count">${repFams.length} ${repFams.length === 1 ? 'family' : 'families'}, ${LENS.families.filter((f) => repFams.includes(f.id)).reduce((n, f) => n + f.lenses, 0).toLocaleString()} lenses</span></div>
+      <div class="famgrid" id="repfams">${LENS.families.map((f) => `<label class="fam"><input type="checkbox" value="${f.id}" ${repFams.includes(f.id) ? 'checked' : ''}><span>${f.id}. ${esc(f.name)} <small>${f.lenses}</small></span></label>`).join('')}</div>
+      <div class="tools" style="margin:14px 0 8px"><label for="repdetail">Detail</label><select id="repdetail">${Object.entries(LENS.detail).map(([k, v]) => `<option value="${k}" ${k === repDetail ? 'selected' : ''}>${esc(v)}</option>`).join('')}</select></div>
+      <div class="fmt">${repFams.length ? LENS.formats.map((f) => `<a class="btn ${f.id === 'docx' ? 'pri' : ''}" href="/api/jobs/${S.id}/report?format=${f.id}&${q}">${esc(f.label)}</a>`).join('') : '<span style="color:var(--bad)">Tick at least one family.</span>'}</div>
+      <p style="color:var(--muted);margin:10px 0 0;font-size:13px">A full report on every lens runs to several hundred pages in Word or PDF. "Only lenses with facts" or a few families is easier to use.</p></div>`;
+  el.onclick = (e) => { const r = e.target.dataset.rep; if (!r) return; repFams = r === 'all' ? LENS.families.map((f) => f.id) : r === 'scope' ? [...sum.lensFamilies] : []; expLens(el); };
+  $('#repfams').onchange = () => { repFams = [...$('#repfams').querySelectorAll('input:checked')].map((x) => +x.value); expLens(el); };
+  $('#repdetail').onchange = () => { repDetail = $('#repdetail').value; expLens(el); };
+}
+function expRaw(el) {
+  const X = [['zip', 'The whole results folder (ZIP)', 'Exactly as saved on disk: every page folder, asset, document and data file', `/api/jobs/${S.id}/zip`], ['all-content.md', 'All text as one Markdown file', 'Every page and document, ready to give to an AI'], ['all-lenses.md', 'Every lens (Markdown)', 'All 1,860 lenses with their facts'], ['report.md', 'Written review (Markdown)', 'Security, design, accessibility, speed, privacy, infrastructure'], ['pages.csv', 'Page list (CSV)', 'One row per page'], ['links.csv', 'Links (CSV)', 'Every link'], ['pages.jsonl', 'Full page records (JSON lines)', 'Everything extracted from every page'], ['site.json', 'Site summary (JSON)', 'Summary, checks, contacts, technology'], ['perspectives.json', 'Review data (JSON)', 'The focused reviews as data'], ['documents.jsonl', 'Document index', 'Each document and its text file'], ['images.jsonl', 'Image index', 'Each image and its saved copy'], ['api.jsonl', 'Hidden data index', 'Each background response and its saved copy']];
+  el.innerHTML = `<p style="color:var(--muted);max-width:85ch;margin:0 0 12px">The files DeepScrape itself writes, unchanged. Useful for scripts and other tools.</p><div class="exp">${X.map(([f, t, d, href]) => `<a class="card" href="${href || fileUrl(f, '?download')}"><b>${t}</b><small>${d}</small></a>`).join('')}</div>
+    <p style="color:var(--muted);margin-top:16px;max-width:80ch">On this computer the results are in<br><code style="font-family:var(--code);color:var(--ink);word-break:break-all">${esc((S.job.stats && S.job.stats.outDir) || 'the data/jobs folder next to DeepScrape')}</code></p>`;
+}
+
+/* ── page drawer ── */
+const D = { page: null, tab: 'shot' };
+const DTABS = [['shot', 'Screenshot'], ['content', 'Content'], ['text', 'All text'], ['preview', 'Preview'], ['details', 'Details'], ['audit', 'Audit'], ['links', 'Links'], ['images', 'Images'], ['tables', 'Tables & forms'], ['data', 'Structured data'], ['network', 'Network'], ['source', 'Source'], ['json', 'Raw record']];
+async function openPage(id) {
+  if (!id) return;
+  $('#drawer').classList.add('open'); $('#scrim').classList.add('open');
+  $('#dhead').innerHTML = '<h3>Loading…</h3>'; $('#dbody').innerHTML = ''; $('#dtabs').innerHTML = '';
+  try { D.page = await api(`/api/jobs/${S.id}/page/${encodeURIComponent(id)}`); } catch (e) { $('#dhead').innerHTML = `<h3>${esc(e.message)}</h3>`; return; }
+  const p = D.page; if (!p.screenshot && D.tab === 'shot') D.tab = 'content';
+  $('#dhead').innerHTML = `<div style="flex:1;min-width:0"><h3>${esc(p.title || p.url)}</h3><a href="${esc(p.finalUrl || p.url)}" target="_blank" rel="noopener noreferrer">${esc(p.finalUrl || p.url)}</a></div><span class="st ${stClass(p)}" style="font-size:18px">${p.error ? 'Failed' : p.status}</span><a class="btn" href="/api/jobs/${S.id}/page/${encodeURIComponent(p.id)}/zip" title="Everything saved for this one page">Download page</a><button class="btn" id="dclose" aria-label="Close page details">Close</button>`;
+  $('#dclose').onclick = closeDrawer; renderDrawer();
+}
+function closeDrawer() { $('#drawer').classList.remove('open'); $('#scrim').classList.remove('open'); }
+$('#scrim').onclick = closeDrawer; addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+$('#dtabs').onclick = (e) => { const b = e.target.closest('button'); if (b) { D.tab = b.dataset.t; renderDrawer(); } };
+$('#dbody').addEventListener('click', (e) => { const i = e.target.dataset && e.target.dataset.tcsv; if (i === undefined) return; const t = D.page.tables[+i];
+  const csv = '\ufeff' + t.rows.map((r) => r.map((v) => (/[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v)).join(',')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = `${(t.caption || 'table-' + (+i + 1)).replace(/[^\w-]+/g, '-')}.csv`; a.click(); URL.revokeObjectURL(a.href); });
+const pre = (s) => `<pre>${esc(s)}</pre>`;
+const jpre = (o) => pre(JSON.stringify(o, null, 2));
+async function fileText(rel, cap = 400000) { const r = await fetch(fileUrl(rel)); if (!r.ok) return '(not saved)'; const t = await r.text(); return t.length > cap ? t.slice(0, cap) + `\n\n… ${t.length - cap} more characters in the saved file` : t; }
+async function renderDrawer() {
+  const p = D.page, b = $('#dbody'); const base = `pages/${p.id}/`;
+  $('#dtabs').innerHTML = DTABS.map(([t, l]) => `<button class="${D.tab === t ? 'on' : ''}" data-t="${t}">${l}</button>`).join('');
+  if (p.error) { b.innerHTML = `<div class="empty">This page could not be loaded: ${esc(p.error)}</div>${jpre(p)}`; return; }
+  if (p.kind === 'file') { b.innerHTML = `<p>This address is a file, not a web page. <a href="${fileUrl(p.savedAs)}" target="_blank" rel="noopener">Open the saved copy</a></p>${p.body ? pre(p.body.slice(0, 200000)) : ''}`; return; }
+  const kv = (rows) => `<dl class="kv">${rows.filter((r) => r[1] != null && r[1] !== '').map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join('')}</dl>`;
+  const tbl = (head, rows) => `<div class="scroll" style="max-height:none"><table><thead><tr>${head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c) => `<td class="wrap">${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const T = D.tab;
+  if (T === 'shot') b.innerHTML = p.screenshot ? `<div style="display:flex;gap:16px;align-items:flex-start"><img class="shot" style="flex:1;min-width:0" src="${fileUrl(p.screenshot)}" alt="Screenshot of ${esc(p.title || p.url)}">${p.screenshotMobile ? `<img class="shot" style="width:220px" src="${fileUrl(p.screenshotMobile)}" alt="The same page at phone width">` : ''}</div>` : '<div class="empty">Screenshots were switched off for this scrape.</div>';
+  else if (T === 'audit') { const A = p.audit || { securityFindings: [], weight: { byType: {} }, thirdParties: [] }; const ac = p.accessibility || {}; const d = p.design || { colors: { text: [], background: [] }, fonts: [] };
+    b.innerHTML = `<h4 style="margin-top:0">Security</h4>${A.securityFindings.length ? A.securityFindings.map((f) => `<details class="finding"><summary><span class="sev ${f.severity}">${f.severity}</span><b>${esc(f.title)}</b></summary><div>${esc(f.detail)}</div><div class="fix">${esc(f.fix)}</div></details>`).join('') : '<span style="color:var(--muted)">Nothing found</span>'}
+      <h4>Accessibility</h4>${kv([['Low-contrast text', ac.lowContrastText], ['Images without a description', ac.imagesWithoutDescription], ['Fields without a label', ac.fieldsWithoutLabel ? `${ac.fieldsWithoutLabel}: ${esc((ac.fieldsWithoutLabelExamples || []).join(', '))}` : 0], ['Links without text', ac.linksWithoutText], ['Buttons without a name', ac.buttonsWithoutName], ['Language', esc(ac.language || 'Not declared')], ['Skip link', ac.skipLink ? 'Yes' : 'No'], ['Zoom blocked', ac.zoomBlocked ? 'Yes' : 'No']])}
+      ${(ac.lowContrastExamples || []).length ? tbl(['Text', 'Contrast', 'Colour', 'On'], ac.lowContrastExamples.map((x) => [esc(x.text), x.ratio + ' : 1', `<i style="display:inline-block;width:11px;height:11px;background:${esc(x.color)};border:1px solid var(--line)"></i> ${esc(x.color)}`, `<i style="display:inline-block;width:11px;height:11px;background:${esc(x.background)};border:1px solid var(--line)"></i> ${esc(x.background)}`])) : ''}
+      ${p.accessibilityTree ? `<p><a href="${fileUrl(p.accessibilityTree)}" target="_blank" rel="noopener">Open what a screen reader is given</a></p>` : ''}
+      <h4>Speed</h4>${kv([['Page weight', bytes(A.weight.total)], ['Requests', A.weight.requests], ['First paint', p.vitals && p.vitals.firstPaintMs != null ? p.vitals.firstPaintMs + ' ms' : ''], ['Largest paint', p.vitals && p.vitals.largestPaintMs != null ? p.vitals.largestPaintMs + ' ms' : ''], ['Layout shift', p.vitals && p.vitals.layoutShift], ['Elements', p.vitals && p.vitals.domNodes], ['By kind', esc(Object.entries(A.weight.byType).map(([k, n]) => `${k} ${bytes(n)}`).join(', '))]])}
+      <h4>Design</h4><div class="sw">${[...d.colors.text.slice(0, 6), ...d.colors.background.slice(0, 6)].map((c) => `<div><i style="background:${esc(c.value.split(' ')[0])}"></i>${esc(c.value)}</div>`).join('')}</div><p>${esc(d.fonts.slice(0, 5).map((f) => f.value).join('; '))}</p>
+      <h4>Privacy</h4>${A.thirdParties.length ? tbl(['Other host contacted', 'Recognised as', 'Requests'], A.thirdParties.map((t) => [esc(t.host), esc(t.service || ''), t.requests])) : '<span style="color:var(--muted)">This page contacts no other companies.</span>'}
+      ${(p.interactions || []).length ? `<h4>Revealed by clicking</h4>${p.interactions.map((x) => `<details class="finding"><summary><b>${esc(x.clicked)}</b><span class="c">${esc(x.kind)}</span></summary><div style="white-space:pre-wrap">${esc(x.newText)}</div></details>`).join('')}` : ''}`; }
+  else if (T === 'content') b.innerHTML = pre(p.markdown || '(no content)');
+  else if (T === 'text') b.innerHTML = `<p style="color:var(--muted);margin-top:0">Every piece of text in the page, including parts that are collapsed or hidden on screen.</p>` + pre(p.text.all);
+  else if (T === 'preview') b.innerHTML = `<p style="color:var(--muted);margin-top:0">The saved page with scripts switched off. Images load from the live site.</p><iframe sandbox src="${fileUrl(base + 'rendered.html', '?preview&base=' + encodeURIComponent(p.finalUrl || p.url))}" title="Saved page preview"></iframe>`;
+  else if (T === 'details') {
+    const m = p.meta || {};
+    b.innerHTML = kv([['Title', esc(p.title)], ['Description', esc(p.description)], ['Language', esc(p.language)], ['Canonical address', esc(p.canonical)], ['Found on', esc(p.foundOn)], ['Redirected through', esc((p.redirectChain || []).join(' → '))], ['Words', p.wordCount], ['Elements', p.dom && p.dom.elementCount], ['Load time', dur(p.durationMs)], ['Scraped', esc(p.scrapedAt)], ['Built with', esc((p.technologies || []).join(', '))], ['Emails', esc(p.contacts.emails.join(', '))], ['Phones', esc(p.contacts.phones.join(', '))]])
+      + `<h4>Headings</h4>${p.headings.length ? p.headings.map((h) => `<div style="padding-left:${(h.level - 1) * 16}px"><span style="color:var(--muted)">H${h.level}</span> ${esc(h.text)}</div>`).join('') : '<span style="color:var(--muted)">None</span>'}`
+      + `<h4>Meta tags</h4>${kv(Object.entries(m.byName || {}).map(([k, v]) => [k, esc([].concat(v).join(' | '))]))}`
+      + `<h4>Response headers</h4>${kv(Object.entries(p.responseHeaders || {}).map(([k, v]) => [k, esc(v)]))}`
+      + `<h4>Cookies</h4>${p.cookies.length ? tbl(['Name', 'Value', 'Domain', 'Expires'], p.cookies.map((c) => [esc(c.name), esc(String(c.value).slice(0, 80)), esc(c.domain), c.expires > 0 ? new Date(c.expires * 1000).toLocaleDateString() : 'Session'])) : '<span style="color:var(--muted)">None</span>'}`
+      + (p.console.length ? `<h4>Browser console</h4>${pre(p.console.map((c) => `[${c.type}] ${c.text}`).join('\n'))}` : '') + (p.comments.length ? `<h4>Comments left in the code</h4>${pre(p.comments.join('\n---\n'))}` : '');
+  }
+  else if (T === 'links') b.innerHTML = tbl(['Text', 'Goes to', 'Kind'], p.links.map((l) => [esc(l.text), `<a href="${esc(/^https?:/.test(l.href || '') ? l.href : '#')}" target="_blank" rel="noopener noreferrer">${esc(l.href || l.rawHref)}</a>`, l.internal === null ? '' : l.internal ? 'Same site' : 'Other site']));
+  else if (T === 'images') b.innerHTML = (p.images.length ? `<div class="gallery">${p.images.filter((i) => i.src).map((i) => `<a href="${i.saved ? fileUrl(i.saved) : esc(i.src)}" target="_blank" rel="noopener noreferrer" title="${esc(i.src)}">${i.saved ? `<img loading="lazy" src="${fileUrl(i.saved)}" alt="${esc(i.alt || '')}">` : '<img alt="" style="opacity:.3">'}<span>${esc(i.alt || '(no description)')}</span></a>`).join('')}</div>` : '<div class="empty">No images on this page.</div>') + (p.backgroundImages.length ? `<h4>Background images</h4>${pre(p.backgroundImages.join('\n'))}` : '') + (p.media.length ? `<h4>Video and audio</h4>${jpre(p.media)}` : '');
+  else if (T === 'tables') b.innerHTML = (p.tables.length ? p.tables.map((t, i) => `<h4>${esc(t.caption || 'Table ' + (i + 1))} <button class="btn sm" data-tcsv="${i}">Save as CSV</button></h4>` + tbl(t.headers || [], (t.headers ? t.rows.slice(1) : t.rows).map((r) => r.map(esc)))).join('') : '<div class="empty">No tables on this page.</div>')
+      + `<h4>Forms</h4>` + (p.forms.length ? p.forms.map((f) => `<p style="margin:10px 0 4px">Sends to <code>${esc(f.action)}</code> (${esc(f.method.toUpperCase())})</p>` + tbl(['Field', 'Kind', 'Label', 'Choices'], f.fields.map((x) => [esc(x.name || x.id), esc(x.type || x.tag), esc(x.label || x.placeholder), esc((x.options || []).map((o) => o.text).join(', '))]))).join('') : '<span style="color:var(--muted)">None</span>');
+  else if (T === 'data') { const sd = p.structuredData; b.innerHTML = `<p style="color:var(--muted);margin-top:0">Machine-readable data the site embeds for search engines and for its own app.</p><h4>Schema.org (JSON-LD)</h4>${sd.jsonLd.length ? jpre(sd.jsonLd) : '<span style="color:var(--muted)">None</span>'}<h4>Microdata</h4>${sd.microdata.length ? jpre(sd.microdata) : '<span style="color:var(--muted)">None</span>'}<h4>App state</h4>${Object.keys(sd.appState).length || sd.jsonScripts.length ? jpre({ ...sd.appState, embedded: sd.jsonScripts }) : '<span style="color:var(--muted)">None</span>'}<h4>Open Graph</h4>${jpre(p.meta.openGraph)}<h4>Data attributes</h4>${p.dataAttributes.length ? jpre(p.dataAttributes.slice(0, 300)) : '<span style="color:var(--muted)">None</span>'}`; }
+  else if (T === 'network') { b.innerHTML = 'Loading…'; const net = JSON.parse(await fileText(base + 'network.json', 5e6).catch(() => '[]')); b.innerHTML = `<p style="color:var(--muted);margin-top:0">${net.length} requests this page made. Rows marked Data are saved background responses.</p>` + tbl(['Result', 'Kind', 'Address', 'Size', ''], net.map((r) => [r.failed ? `<span class="st err">${esc(r.failed)}</span>` : `<span class="st s${String(r.status)[0]}">${r.status}</span>`, esc(r.type), esc(r.url), bytes(r.bytes), r.saved ? `<a href="${fileUrl(r.saved)}" target="_blank" rel="noopener">${r.saved.includes('/api/') ? 'Data' : 'Saved'}</a>` : ''])); }
+  else if (T === 'source') { b.innerHTML = 'Loading…'; b.innerHTML = `<p style="margin-top:0"><a href="${fileUrl(base + 'rendered.html', '?download')}">Save the rendered HTML</a> · <a href="${fileUrl(base + 'raw.html', '?download')}">Save the original HTML</a></p>` + pre(await fileText(base + 'rendered.html')); }
+  else if (T === 'json') b.innerHTML = jpre(p);
+}
+
+refreshJobs().then(() => { const live = S.jobs.find((j) => LIVE.includes(j.status)); if (live) (live.batch ? selectBatch(live.batch.id) : selectJob(live.id)); });
+</script>
+</body>
+</html>
