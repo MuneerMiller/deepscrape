@@ -155,6 +155,7 @@ dl.kv{display:grid;grid-template-columns:170px 1fr;gap:4px 14px;margin:0 0 16px}
 dialog.ask .btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)} dialog.ask{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:18px;min-width:320px;box-shadow:0 18px 50px rgba(0,0,0,.25)} dialog.ask::backdrop{background:rgba(10,20,30,.45)} dialog.ask label{display:grid;gap:8px;font-weight:600} dialog.ask input,dialog.ask select{border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);padding:7px 9px;font:inherit;font-weight:400} .askrow{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 .topicgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px} .topic h3{font-size:16px;margin-bottom:4px} .topic p{color:var(--muted);margin:0 0 10px;min-height:2.8em} .topic .chips{display:flex;flex-wrap:wrap;gap:6px;align-items:center} .topic a.btn{text-decoration:none;color:inherit} .topic a.btn.best{border-color:var(--accent);color:var(--accent);font-weight:600} .topic select{border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);padding:3px 6px;font:inherit;font-size:12.5px} .topic small{display:block;color:var(--muted);margin-top:8px}
 .scores{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px} .sc{display:grid;grid-template-columns:auto auto;align-items:baseline;column-gap:6px;padding:10px 14px;border:1px solid var(--line);border-radius:10px;min-width:118px;text-decoration:none;color:inherit} .sc .num{font-size:26px;font-weight:700} .sc b{color:var(--accent)} .sc small{grid-column:1/-1;color:var(--muted)} .sc.main{background:var(--bg)} a.sc:hover{border-color:var(--accent)}
+dialog.connect{max-width:820px;width:calc(100vw - 40px);max-height:calc(100vh - 40px);overflow:auto} dialog.connect h4{margin:14px 0 4px;font-size:14.5px} dialog.connect p{margin:0 0 6px} dialog.connect ul{margin:4px 0;padding-left:18px} dialog.connect li{margin:3px 0} .copybox{display:flex;gap:8px;align-items:flex-start} .copybox pre{flex:1;margin:0;white-space:pre-wrap;word-break:break-all;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:12.5px/1.45 Consolas,monospace}
 </style>
 </head>
 <body>
@@ -167,6 +168,8 @@ dialog.ask .btn.primary{background:var(--accent);color:var(--accent-ink);border-
   <div id="jobs"></div>
   <div class="sec" style="border-top:1px solid var(--line);padding-top:10px"><span>Repeating scrapes</span></div>
   <div id="schedules" style="padding:0 18px 8px;font-size:13px;max-height:110px;overflow:auto"></div>
+  <div class="sec" style="border-top:1px solid var(--line);padding-top:10px"><span>Claude and other tools</span><button class="btn sm" id="connectbtn">Connect</button></div>
+  <p class="hint" style="margin:0 12px 10px;color:var(--muted);font-size:12.5px">Let Claude or Claude Code run scrapes and read the results.</p>
   <div class="sec" style="border-top:1px solid var(--line);padding-top:10px"><span>Your AI</span><button class="btn sm" id="aibtn">Set up</button></div>
   <div id="ailist" style="padding:0 18px 8px;font-size:13px;color:var(--muted)"></div>
   <div class="sec" style="border-top:1px solid var(--line);padding-top:10px"><span>Saved sign-ins</span></div>
@@ -405,6 +408,23 @@ $('#sessions').onclick = async (e) => { const h = e.target.dataset.forget; if (h
 setInterval(() => refreshJobs().catch(() => {}), 4000);
 let AI = { providers: [], connections: [] };
 $('#schedules').onclick = async (e) => { const id = e.target.dataset.unsched; if (id) { await api('/api/schedules/' + id, { method: 'DELETE' }); refreshJobs(); } };
+// How to plug this copy of DeepScrape into Claude, Claude Code and other programs.
+$('#connectbtn').onclick = async () => {
+  const c = await api('/api/connect');
+  const d = document.createElement('dialog'); d.className = 'ask connect';
+  const block = (id, text) => `<div class="copybox"><pre id="${id}">${esc(text)}</pre><button class="btn sm" data-copy="${id}">Copy</button></div>`;
+  d.innerHTML = `<h3 style="font-size:19px;margin-bottom:6px">Use DeepScrape from Claude and other tools</h3>
+    <p style="color:var(--muted);margin:0 0 12px">Once connected, you can ask in plain words: "scrape example.com and tell me how secure it is", "what fonts and colours does this site use", "give me the accessibility report as a PDF". Scrapes started this way show up here, and sign-in windows still open for you.</p>
+    <h4>Claude Code</h4><p>Run this once in a terminal:</p>${block('c-code', c.claudeCode)}
+    <h4>Claude desktop app</h4><p>Open Settings, Developer, Edit Config (the file is <code>${esc(c.desktopConfigFile)}</code>), add this, then restart Claude. If the file already has an <code>mcpServers</code> part, add only the <code>deepscrape</code> entry inside it.</p>${block('c-desktop', c.desktopConfig)}
+    <h4>Cursor, VS Code and other MCP programs</h4><p>Add a stdio server with this command${Object.keys(c.env).length ? ' and the environment value ELECTRON_RUN_AS_NODE=1' : ''}:</p>${block('c-any', `${c.command.includes(' ') ? '"' + c.command + '"' : c.command} "${c.args[0]}"`)}
+    <h4>What they can do</h4><ul>${c.tools.map((t) => `<li><code>${esc(t.name)}</code> ${esc(t.description)}</li>`).join('')}</ul>
+    <h4>Scripts and other programs</h4><p>Everything in this dashboard is also available at <code>${esc(c.api)}</code> while DeepScrape is open (for example <code>/jobs</code>, <code>/jobs/ID/export?topic=security&amp;format=json</code>), and from the command line with <code>scrape.js</code>. Both are described in the guide on GitHub.</p>
+    <div class="askrow"><button class="btn primary" id="c-close">Done</button></div>`;
+  document.body.appendChild(d);
+  d.onclick = async (e) => { const b = e.target.closest('[data-copy]'); if (b) { try { await navigator.clipboard.writeText($('#' + b.dataset.copy).textContent); b.textContent = 'Copied'; } catch { b.textContent = 'Select and copy'; } setTimeout(() => { b.textContent = 'Copy'; }, 1500); } if (e.target.id === 'c-close') d.close(); };
+  d.addEventListener('close', () => d.remove()); d.showModal();
+};
 $('#aibtn').onclick = () => { const v = $('#aiview'); v.hidden = !v.hidden; if (!v.hidden) { renderAiSettings(v); v.scrollIntoView({ block: 'start' }); } };
 
 /* ── your own AI: connections ── */

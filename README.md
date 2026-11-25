@@ -238,6 +238,49 @@ There are also focused reviews: **Security** (graded findings with fixes),
 sends to any visitor and never sends attacks, guesses passwords or probes for
 hidden files.
 
+## Use it from Claude, Claude Code and other tools
+
+DeepScrape is also a tool other programs can drive. **Connect** in the sidebar shows
+the exact lines for your copy; in short:
+
+**Claude Code** (run once in a terminal):
+
+```
+claude mcp add --scope user --transport stdio deepscrape -- node "/path/to/deepscrape/mcp.js"
+```
+
+**Claude desktop app** (Settings, Developer, Edit Config, then restart):
+
+```json
+{ "mcpServers": { "deepscrape": { "command": "node", "args": ["/path/to/deepscrape/mcp.js"] } } }
+```
+
+With the installed Windows app, the command is `DeepScrape.exe` itself with the
+environment value `ELECTRON_RUN_AS_NODE=1`; the Connect panel fills in the paths.
+Cursor, VS Code and anything else that speaks the Model Context Protocol (MCP) use the
+same command.
+
+Then ask in plain words: "scrape example.com and tell me how secure it is", "what
+colours and fonts does this site use", "save the accessibility report as a PDF".
+
+| Tool | What it does |
+| --- | --- |
+| `scrape_website` | Scrape a site, a section or one page; returns scores when done |
+| `list_scrapes`, `get_scrape` | What is on this computer; status, scores and headline results |
+| `get_report` | The in-depth report for a topic, as Markdown |
+| `list_pages`, `get_page` | Pages, and one page's content, details, design, security or accessibility |
+| `search_scrape` | Find text across every page and document |
+| `export_scrape` | Save a PDF, Word, Excel or ZIP pack to disk |
+
+The bridge talks to the DeepScrape app on the same computer and starts it in the
+background if it is not open, so these scrapes appear in the dashboard and sign-in
+windows still open for you. It has no access beyond what the app itself does.
+
+**Scripts and other programs.** Everything the dashboard does goes through a local
+API at `http://localhost:4780/api` (only reachable from this computer), for example
+`GET /jobs`, `POST /jobs {"url": "..."}`, `GET /jobs/ID/export?topic=security&format=json`.
+The command line (`node scrape.js --help`) does the same without the dashboard.
+
 ## Speed and accuracy
 
 DeepScrape does not wait on fixed timers. It watches each page's own network requests
@@ -282,8 +325,8 @@ Switch it off under Options or with `--no-self-check`.
 ### By topic
 
 The Export tab opens on **By topic**: Scorecard, Security, Design, Accessibility, Speed,
-Privacy, Search and content quality, Technology and hosting, Legal and contacts, and
-All the content. Pick a topic and a format (PDF report, Word, Excel, Markdown, web
+Privacy, Search and content quality, Technology and hosting, Legal and contacts,
+All the content, and **Everything in one report** (every topic in a single document). Pick a topic and a format (PDF report, Word, Excel, Markdown, web
 page, JSON, CSV).
 
 Each topic report is written to be read on its own:
@@ -409,8 +452,8 @@ node scrape.js --help
 
 ## Tests
 
-`npm test` runs six end-to-end tests against a built-in local test site: the
-crawler (108 checks), the sign-in flow, the dashboard, several websites at once, a slow-starting site, and speed against content. On Linux without a
+`npm test` runs seven end-to-end tests against a built-in local test site: the
+crawler (108 checks), the sign-in flow, the dashboard, several websites at once, a slow-starting site, speed against content, and the MCP bridge. On Linux without a
 screen, run it under `xvfb-run`. `npm run test:desktop` checks the desktop app window.
 
 ## Licence

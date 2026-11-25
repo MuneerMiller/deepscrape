@@ -13,7 +13,7 @@ const electronVersion = require(path.join(root, 'node_modules', 'electron', 'pac
 (async () => {
   fs.rmSync(stage, { recursive: true, force: true }); fs.mkdirSync(stage, { recursive: true });
   // Only what the app needs at run time: no tests, screenshots, saved scrapes or build tools.
-  for (const item of ['server.js', 'scrape.js', 'lib', 'public', 'electron', 'LICENSE.md', 'README.md', 'package-lock.json']) fs.cpSync(path.join(root, item), path.join(stage, item), { recursive: true });
+  for (const item of ['server.js', 'scrape.js', 'mcp.js', 'lib', 'public', 'electron', 'LICENSE.md', 'README.md', 'package-lock.json']) fs.cpSync(path.join(root, item), path.join(stage, item), { recursive: true });
   fs.mkdirSync(path.join(stage, 'build')); fs.copyFileSync(path.join(root, 'build', 'icon.png'), path.join(stage, 'build', 'icon.png'));
   const appPkg = { ...pkg, main: 'electron/main.js', productName: 'DeepScrape' };
   delete appPkg.devDependencies; delete appPkg.scripts; delete appPkg.bin;

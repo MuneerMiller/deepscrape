@@ -212,6 +212,18 @@ const server = http.createServer(async (req, res) => {
       }
       return send(res, made.length ? 200 : 400, { jobs: made, rejected: bad, error: made.length ? undefined : (bad[0] && bad[0].error) || 'Could not start.' });
     }
+    if (p === '/api/connect') {   // the exact lines for connecting Claude, Claude Code and other MCP programs to this copy
+      const mcp = path.join(__dirname, 'mcp.js'); const desktop = process.env.DEEPSCRAPE_DESKTOP === '1' || !!process.versions.electron;
+      const command = desktop ? process.execPath : 'node'; const env = desktop ? { ELECTRON_RUN_AS_NODE: '1' } : {};
+      const q = (v) => `"${v}"`;
+      return send(res, 200, {
+        command, args: [mcp], env,
+        claudeCode: `claude mcp add --scope user ${desktop ? '--env ELECTRON_RUN_AS_NODE=1 ' : ''}--transport stdio deepscrape -- ${desktop ? q(command) : 'node'} ${q(mcp)}`,
+        desktopConfig: JSON.stringify({ mcpServers: { deepscrape: { command, args: [mcp], ...(desktop ? { env } : {}) } } }, null, 2),
+        desktopConfigFile: process.platform === 'win32' ? '%APPDATA%\\Claude\\claude_desktop_config.json' : process.platform === 'darwin' ? '~/Library/Application Support/Claude/claude_desktop_config.json' : '~/.config/Claude/claude_desktop_config.json',
+        api: `http://localhost:${PORT}/api`, tools: require('./mcp').TOOLS.map((t) => ({ name: t.name, description: t.description.split('. ')[0] + '.' })),
+      });
+    }
     if (p === '/api/health') return send(res, 200, { app: 'deepscrape', version: require('./package.json').version, running: [...jobs.values()].filter(isLive).length, data: DATA });
     if (p === '/api/export-options') return send(res, 200, exporter.options());
     if (p === '/api/lenses') return send(res, 200, { families: lensLib.families(), total: lensLib.totalLenses, formats: Object.entries(FORMATS).map(([id, f]) => ({ id, label: f.label })), detail: DETAIL });
