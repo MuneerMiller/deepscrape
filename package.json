@@ -1,6 +1,6 @@
 {
   "name": "deepscrape",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "description": "Scrape a whole website in a real browser, review it through 1,860 lenses, and export what you choose. Runs on your own computer.",
   "main": "lib/crawler.js",
   "bin": {
